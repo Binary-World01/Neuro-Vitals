@@ -14,7 +14,6 @@
         rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/supabase-config.js"></script>
-    <script src="js/vitals-streamer.js"></script>
     <script src="js/utils.js"></script>
     <script>
         tailwind.config = {
@@ -422,14 +421,20 @@
 
         async function generateAdversarialDebate(data) {
             try {
+                const currentUser = JSON.parse(localStorage.getItem('neurovitals_currentUser') || '{}');
                 const patientProfile = {
-                    name: data.name || "Patient",
+                    patient_id: currentUser.id || "anonymous",
                     age: parseInt(data.age),
                     gender: data.gender,
-                    symptoms: data.symptoms,
+                    symptoms: [
+                        {
+                            description: data.symptoms,
+                            severity: parseInt(data.severity) || 5,
+                            duration_days: parseInt(data.duration) || 1
+                        }
+                    ],
                     medical_history: data.history ? [data.history] : [],
-                    severity: parseInt(data.severity) || 5,
-                    duration: parseInt(data.duration) || 1
+                    current_medications: []
                 };
 
                 // Add stored location
@@ -454,13 +459,19 @@
                 return {
                     prosecutor: {
                         diagnosis: result.prosecutor.diagnosis,
-                        confidence: result.prosecutor.confidence,
-                        points: result.prosecutor.points.map(p => ({ title: p.title, description: p.description }))
+                        confidence: Math.round(result.prosecutor.confidence * 100),
+                        points: [
+                            ...result.prosecutor.supporting_evidence.map(e => ({ title: "Supporting Evidence", description: e })),
+                            ...(result.prosecutor.rebuttals_to_alternatives || []).map(e => ({ title: "Rebuttal", description: e }))
+                        ]
                     },
                     defense: {
-                        diagnosis: result.defense.diagnosis,
-                        confidence: result.defense.confidence,
-                        points: result.defense.points.map(p => ({ title: p.title, description: p.description }))
+                        diagnosis: result.defense.alternative_diagnosis || result.defense.diagnosis,
+                        confidence: Math.round(result.defense.confidence * 100),
+                        points: [
+                            ...result.defense.contradictory_evidence.map(e => ({ title: "Contradiction", description: e })),
+                            { title: "Defense Logic", description: result.defense.why_more_likely || "Alternative etiology suggested." }
+                        ]
                     }
                 };
             } catch (error) {
@@ -473,11 +484,11 @@
             if (window._lastDebateResult) {
                 const result = window._lastDebateResult.verdict;
                 return {
-                    verdict: result.verdict,
-                    confidence: result.confidence,
-                    highlights: result.highlights || [],
+                    verdict: result.final_diagnosis,
+                    confidence: Math.round(result.confidence * 100),
+                    highlights: result.recommended_tests || [],
                     synthesis: result.synthesis,
-                    next_step: result.next_step
+                    next_step: result.debate_summary
                 };
             }
             return {

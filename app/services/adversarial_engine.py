@@ -1,45 +1,85 @@
-"""
-Adversarial Diagnosis Engine - Two AIs debate, one judges
-"""
 import os
 import json
-from typing import Dict, Any
+import logging
+from typing import Dict, Any, List
+from app.config import settings
 
+logger = logging.getLogger(__name__)
 
 class AdversarialEngine:
-    """Adversarial diagnosis system"""
+    """Adversarial diagnosis system using Multi-Agent Debate"""
     
     def __init__(self):
-        self.api_key = os.getenv("OPENAI_API_KEY")
-        self.use_mock = not self.api_key
-        
-        if not self.use_mock:
+        self._model = None
+
+    def _get_model(self):
+        if self._model is not None:
+            return self._model
+
+        # Strategy 1: Google AI SDK (Gemini)
+        if settings.GOOGLE_API_KEY:
+            try:
+                import google.generativeai as genai
+                genai.configure(api_key=settings.GOOGLE_API_KEY)
+                self._model = genai.GenerativeModel("gemini-flash-lite-latest")
+                logger.info("Adversarial LLM initialized with Google AI SDK.")
+                return self._model
+            except Exception as e:
+                logger.error("Failed to init Google AI: %s", e)
+
+        # Strategy 2: GitHub Models (OpenAI-Compatible SDK)
+        if settings.GITHUB_TOKEN:
             try:
                 from openai import OpenAI
-                self.client = OpenAI(api_key=self.api_key)
-            except ImportError:
-                self.use_mock = True
-    
+                client = OpenAI(
+                    base_url="https://models.inference.ai.azure.com",
+                    api_key=settings.GITHUB_TOKEN
+                )
+                class GitHubGeminiWrapper:
+                    def __init__(self, client):
+                        self.client = client
+                    def generate_content(self, prompt):
+                        response = self.client.chat.completions.create(
+                            model="gpt-4o",
+                            messages=[{"role": "user", "content": prompt}],
+                            temperature=0.1,
+                            response_format={"type": "json_object"}
+                        )
+                        class ResponseWrapper:
+                            def __init__(self, text):
+                                self.text = text
+                        return ResponseWrapper(response.choices[0].message.content)
+
+                self._model = GitHubGeminiWrapper(client)
+                logger.info("Adversarial LLM initialized with GitHub Models.")
+                return self._model
+            except Exception as e:
+                logger.error("Failed to init GitHub Models: %s", e)
+
+        logger.warning("No AI provider configured. Using Mock fallback.")
+        return None
+
     def prosecutor_ai(self, patient_data: dict) -> Dict[str, Any]:
         """Argues FOR the most likely diagnosis"""
+        model = self._get_model()
         
-        if self.use_mock:
+        symptoms_list = patient_data.get('symptoms', [])
+        symptoms_desc = ", ".join([f"{s.get('description', 'Unknown')} (severity {s.get('severity', 5)})" for s in symptoms_list])
+        
+        if not model:
             return {
                 "diagnosis": "Acute Viral Infection",
                 "confidence": 0.85,
                 "supporting_evidence": [
                     "High fever consistent with viral infection pattern",
                     "Timeline of 2-3 days matches typical viral onset",
-                    "Age group commonly affected by seasonal viruses",
-                    "Symptom combination highly specific to viral etiology"
+                    "Age group commonly affected by seasonal viruses"
                 ],
                 "rebuttals_to_alternatives": [
                     "Bacterial infection unlikely due to absence of localized symptoms",
                     "Chronic condition ruled out by acute onset"
                 ]
             }
-        
-        symptoms_desc = ", ".join([f"{s['description']} (severity {s['severity']})" for s in patient_data.get('symptoms', [])])
         
         prompt = f"""You are the PROSECUTOR AI in a medical debate.
 Your job: Argue STRONGLY for the most likely diagnosis based on symptoms.
@@ -48,52 +88,39 @@ Patient: {patient_data.get('age')}yo {patient_data.get('gender')}
 Symptoms: {symptoms_desc}
 Medical history: {', '.join(patient_data.get('medical_history', []))}
 
-Provide:
-1. Your diagnosis
-2. Confidence (0-1)
-3. 3-5 pieces of SUPPORTING evidence
-4. Why alternative diagnoses are LESS likely
-
-Respond in JSON:
+Respond in JSON ONLY:
 {{
     "diagnosis": "...",
     "confidence": 0.0-1.0,
-    "supporting_evidence": ["...", "..."],
-    "rebuttals_to_alternatives": ["...", "..."]
+    "supporting_evidence": ["Evidence 1", "Evidence 2", "Evidence 3"],
+    "rebuttals_to_alternatives": ["Why X is wrong", "Why Y is wrong"]
 }}
 """
-        
         try:
-            response = self.client.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {"role": "system", "content": "You are an aggressive prosecutor AI. Find evidence for the PRIMARY diagnosis."},
-                    {"role": "user", "content": prompt}
-                ],
-                response_format={"type": "json_object"}
-            )
-            return json.loads(response.choices[0].message.content)
+            response = model.generate_content(prompt)
+            return json.loads(response.text)
         except Exception as e:
-            print(f"Prosecutor AI Error: {e}")
-            return self.prosecutor_ai(patient_data)  # Use mock
-    
+            logger.error("Prosecutor AI Error: %s", e)
+            return {"diagnosis": "Error in Analysis", "confidence": 0, "supporting_evidence": [str(e)], "rebuttals_to_alternatives": []}
+
     def defense_ai(self, patient_data: dict, prosecutor_diagnosis: str) -> Dict[str, Any]:
         """Searches for contradictions and alternatives"""
+        model = self._get_model()
         
-        if self.use_mock:
+        symptoms_list = patient_data.get('symptoms', [])
+        symptoms_desc = ", ".join([f"{s.get('description', 'Unknown')} (severity {s.get('severity', 5)})" for s in symptoms_list])
+        
+        if not model:
             return {
                 "alternative_diagnosis": "Allergic Reaction",
                 "confidence": 0.68,
                 "contradictory_evidence": [
                     "Fever pattern inconsistent with typical viral progression",
-                    "Patient reports environmental triggers (potential allergens)",
-                    "Rapid onset more consistent with allergic response",
-                    "Absence of typical viral prodrome symptoms"
+                    "Patient reports environmental triggers",
+                    "Rapid onset more consistent with allergic response"
                 ],
-                "why_more_likely": "Environmental exposure combined with symptom onset timing suggests allergic etiology over viral infection"
+                "why_more_likely": "Environmental exposure combined with timing suggests allergic etiology."
             }
-        
-        symptoms_desc = ", ".join([f"{s['description']} (severity {s['severity']})" for s in patient_data.get('symptoms', [])])
         
         prompt = f"""You are the DEFENSE AI in a medical debate.
 The Prosecutor claims: "{prosecutor_diagnosis}"
@@ -103,98 +130,64 @@ Your job: Find CONTRADICTIONS and propose ALTERNATIVE diagnoses.
 Patient: {patient_data.get('age')}yo {patient_data.get('gender')}
 Symptoms: {symptoms_desc}
 
-Provide:
-1. Your alternative diagnosis
-2. Confidence (0-1)
-3. 3-5 pieces of CONTRADICTORY evidence against prosecutor
-4. Why your diagnosis is MORE likely
-
-Respond in JSON:
+Respond in JSON ONLY:
 {{
     "alternative_diagnosis": "...",
     "confidence": 0.0-1.0,
-    "contradictory_evidence": ["...", "..."],
+    "contradictory_evidence": ["Contradiction 1", "Contradiction 2"],
     "why_more_likely": "..."
 }}
 """
-        
         try:
-            response = self.client.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {"role": "system", "content": "You are a defense AI. Find contradictions and alternatives."},
-                    {"role": "user", "content": prompt}
-                ],
-                response_format={"type": "json_object"}
-            )
-            return json.loads(response.choices[0].message.content)
+            response = model.generate_content(prompt)
+            return json.loads(response.text)
         except Exception as e:
-            print(f"Defense AI Error: {e}")
-            return self.defense_ai(patient_data, prosecutor_diagnosis)
-    
+            logger.error("Defense AI Error: %s", e)
+            return {"alternative_diagnosis": "Error in Analysis", "confidence": 0, "contradictory_evidence": [str(e)], "why_more_likely": ""}
+
     def judge_ai(self, patient_data: dict, prosecutor_result: dict, defense_result: dict) -> Dict[str, Any]:
         """Synthesizes both arguments"""
+        model = self._get_model()
         
-        if self.use_mock:
+        if not model:
             return {
                 "final_diagnosis": "Likely Viral Infection with possible allergic component",
                 "confidence": 0.78,
-                "synthesis": "After reviewing both arguments, the primary evidence supports a viral infection as the most likely cause. However, the defense raises valid points about environmental triggers that warrant consideration. The truth likely lies in a viral infection exacerbated by allergic inflammation.",
-                "recommended_tests": [
-                    "Complete Blood Count (CBC) to differentiate viral vs bacterial",
-                    "Allergy panel if symptoms persist",
-                    "Chest X-ray if respiratory symptoms worsen"
-                ],
-                "debate_summary": "Prosecutor presented strong evidence for viral infection based on symptom timeline and pattern. Defense effectively challenged this with environmental exposure data. Final verdict synthesizes both perspectives."
+                "synthesis": "The primary evidence supports a viral infection, but environmental triggers raised by defense are plausible.",
+                "recommended_tests": ["CBC Test", "Allergy Panel"],
+                "debate_summary": "Prosecutor argued viral pattern; Defense argued environmental triggers."
             }
         
         prompt = f"""You are the JUDGE AI in a medical debate.
 
-PROSECUTOR argues: {prosecutor_result['diagnosis']} (Confidence: {prosecutor_result['confidence']})
-Evidence: {prosecutor_result['supporting_evidence']}
+PROSECUTOR argues: {prosecutor_result.get('diagnosis')} (Confidence: {prosecutor_result.get('confidence')})
+Evidence: {prosecutor_result.get('supporting_evidence')}
 
-DEFENSE argues: {defense_result['alternative_diagnosis']} (Confidence: {defense_result['confidence']})
-Contradictions: {defense_result['contradictory_evidence']}
+DEFENSE argues: {defense_result.get('alternative_diagnosis')} (Confidence: {defense_result.get('confidence')})
+Contradictions: {defense_result.get('contradictory_evidence')}
 
-Provide your FINAL VERDICT:
-1. Final diagnosis (can be prosecutor's, defense's, or a third option)
-2. Confidence (0-1)
-3. Synthesis of both arguments
-4. Next steps (tests to rule out alternatives)
+Synthesize and provide FINAL VERDICT.
 
-Respond in JSON:
+Respond in JSON ONLY:
 {{
     "final_diagnosis": "...",
     "confidence": 0.0-1.0,
     "synthesis": "...",
-    "recommended_tests": ["...", "..."],
+    "recommended_tests": ["Test 1", "Test 2"],
     "debate_summary": "..."
 }}
 """
-        
         try:
-            response = self.client.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {"role": "system", "content": "You are an impartial judge. Synthesize both arguments."},
-                    {"role": "user", "content": prompt}
-                ],
-                response_format={"type": "json_object"}
-            )
-            return json.loads(response.choices[0].message.content)
+            response = model.generate_content(prompt)
+            return json.loads(response.text)
         except Exception as e:
-            print(f"Judge AI Error: {e}")
-            return self.judge_ai(patient_data, prosecutor_result, defense_result)
-    
+            logger.error("Judge AI Error: %s", e)
+            return {"final_diagnosis": "Error", "confidence": 0, "synthesis": str(e), "recommended_tests": [], "debate_summary": ""}
+
     def run_debate(self, patient_data: dict) -> Dict[str, Any]:
         """Run full adversarial debate"""
-        # Step 1: Prosecutor argues
         prosecutor = self.prosecutor_ai(patient_data)
-        
-        # Step 2: Defense counters
-        defense = self.defense_ai(patient_data, prosecutor["diagnosis"])
-        
-        # Step 3: Judge synthesizes
+        defense = self.defense_ai(patient_data, prosecutor.get("diagnosis", "Unknown"))
         verdict = self.judge_ai(patient_data, prosecutor, defense)
         
         return {
@@ -202,6 +195,5 @@ Respond in JSON:
             "defense": defense,
             "verdict": verdict
         }
-
 
 adversarial_engine = AdversarialEngine()
