@@ -26,9 +26,8 @@ pytz
 # ── Groq AI (Risk Engine) ──
 groq
 
-# ── OCR (Risk Engine - prescription reading) ──
-paddleocr
-paddlepaddle
+# ── OCR (prescription reading) ──
+pytesseract
 pillow
 opencv-python-headless
 numpy
