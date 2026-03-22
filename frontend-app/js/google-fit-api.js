@@ -529,7 +529,7 @@ const GoogleFitAPI = (() => {
         };
 
         try {
-            const response = await fetch('https://neuro-vitals-api.onrender.com/api/save-vitals', {
+            const response = await fetch('/api/save-vitals', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)

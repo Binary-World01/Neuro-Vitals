@@ -1,6 +1,9 @@
 """
 Main FastAPI Application
 """
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
@@ -32,9 +35,9 @@ app.include_router(risk.router)
 app.include_router(outbreak.router)
 
 
-@app.get("/")
-async def root():
-    """Root endpoint"""
+@app.get("/api/info")
+async def api_info():
+    """API Information endpoint"""
     return {
         "message": "Neuro-Vitals API",
         "version": settings.VERSION,
@@ -75,6 +78,20 @@ async def health_check():
         "status": "healthy",
         "version": settings.VERSION
     }
+
+# 1. Mount the frontend folder
+# Assuming the folder structure in Railway will be /app/frontend-app
+frontend_path = os.path.join(os.getcwd(), "..", "frontend-app")
+if os.path.exists(frontend_path):
+    app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
+
+# 2. Catch-all route to serve index.html for any frontend route
+@app.get("/{catchall:path}")
+async def serve_frontend(catchall: str):
+    index_file = os.path.join(frontend_path, "index.html")
+    if os.path.exists(index_file):
+        return FileResponse(index_file)
+    return {"error": "Frontend not found"}
 
 
 if __name__ == "__main__":

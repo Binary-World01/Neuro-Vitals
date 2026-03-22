@@ -749,7 +749,7 @@
                     
                     if (userEmail) {
                         try {
-                            const res = await fetch(`https://neuro-vitals-api.onrender.com/api/vitals/get-vitals/${encodeURIComponent(userEmail)}`);
+                            const res = await fetch(`/api/vitals/get-vitals/${encodeURIComponent(userEmail)}`);
                             const result = await res.json();
                             if (result.status === 'success' && result.data && result.data.length > 0) {
                                 // Find latest record
