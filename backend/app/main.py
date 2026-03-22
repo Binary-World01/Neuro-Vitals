@@ -81,9 +81,9 @@ async def health_check():
 
 # 1. Mount the frontend folder
 # Use absolute path based on this file's location to be robust on Railway
-app_dir = os.path.dirname(os.path.abspath(__file__))
-repo_root = os.path.join(app_dir, "..")
-frontend_path = os.path.join(repo_root, "frontend-app")
+app_dir = os.path.dirname(os.path.abspath(__file__)) # .../backend/app
+repo_root = os.path.join(app_dir, "..", "..") # .../
+frontend_path = os.path.join(repo_root, "frontend") # .../frontend
 
 if os.path.exists(frontend_path):
     app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
