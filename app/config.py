@@ -16,7 +16,8 @@ class Settings(BaseSettings):
     # AI Model Configuration
     OPENAI_API_KEY: Optional[str] = None
     ANTHROPIC_API_KEY: Optional[str] = None
-    MODEL_PROVIDER: str = "openai"  # "openai", "anthropic", or "mock"
+    GITHUB_TOKEN: Optional[str] = None
+    MODEL_PROVIDER: str = "github"  # "openai", "anthropic", "github", or "mock"
     
     # Groq API (Risk Engine)
     GROQ_API_KEY: Optional[str] = None

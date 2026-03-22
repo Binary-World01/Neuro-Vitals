@@ -6,21 +6,36 @@ import json
 from typing import Dict, Any
 from app.schemas import PatientProfile
 
+from app.config import settings
 
 class LLMService:
     """Service for LLM interactions"""
     
     def __init__(self):
-        self.api_key = os.getenv("OPENAI_API_KEY")
-        self.use_mock = not self.api_key
-        
-        if not self.use_mock:
-            try:
+        self.provider = settings.MODEL_PROVIDER
+        self.api_key = None
+        self.client = None
+        self.use_mock = False
+
+        if self.provider == "openai":
+            self.api_key = settings.OPENAI_API_KEY
+            if self.api_key:
                 from openai import OpenAI
                 self.client = OpenAI(api_key=self.api_key)
-            except ImportError:
-                print("OpenAI not installed, using mock mode")
+            else:
                 self.use_mock = True
+        elif self.provider == "github":
+            self.api_key = settings.GITHUB_TOKEN
+            if self.api_key:
+                from openai import OpenAI
+                self.client = OpenAI(
+                    base_url="https://models.inference.ai.azure.com",
+                    api_key=self.api_key
+                )
+            else:
+                self.use_mock = True
+        else:
+            self.use_mock = True
     
     def analyze_symptoms(self, patient: PatientProfile) -> Dict[str, Any]:
         """Analyze symptoms and provide diagnosis"""
@@ -55,9 +70,11 @@ Respond in JSON format:
 }}
 """
         
+        model = "gpt-4" if self.provider == "openai" else "gpt-4o"
+        
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4",
+                model=model,
                 messages=[
                     {"role": "system", "content": "You are a medical diagnosis AI. Always provide reasoning."},
                     {"role": "user", "content": prompt}
