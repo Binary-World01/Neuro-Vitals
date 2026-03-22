@@ -1,4 +1,38 @@
+"""
+Vitals Router — Save and retrieve vitals data from Google Fit to Supabase.
+"""
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+from typing import Optional
+from datetime import datetime
+import os
+
+router = APIRouter()
+
+# Supabase client
+try:
+    from supabase import create_client
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
+except Exception:
+    supabase = None
+
+class VitalsData(BaseModel):
+    user_email: str
+    steps: Optional[int] = 0
+    heart_rate: Optional[int] = 0
+    sleep_hours: Optional[float] = 0.0
+    calories: Optional[int] = 0
+    source: Optional[str] = "google_fit"
+    recorded_at: Optional[datetime] = None
+
+@router.get("/api/vitals-health")
+async def vitals_health():
+    return {"status": "ok", "supabase": supabase is not None}
+
 @router.post("/api/save-vitals")
+
 async def save_vitals(vitals: VitalsData):
     """Save vitals data from Google Fit to Supabase (upsert)"""
     if not supabase:
