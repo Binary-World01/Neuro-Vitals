@@ -6,12 +6,12 @@
       "use": "@vercel/python"
     },
     {
-      "src": "frontend/**",
+      "src": "public/**",
       "use": "@vercel/static"
     }
   ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "api/index.py" },
-    { "source": "/(.*)", "destination": "frontend/$1" }
+    { "source": "/(.*)", "destination": "public/$1" }
   ]
 }
