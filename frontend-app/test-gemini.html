@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini API Debugger</title>
+    <style>
+        body {
+            background: #111;
+            color: #fff;
+            font-family: monospace;
+            padding: 20px;
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .running {
+            background: #d97706;
+        }
+
+        .success {
+            background: #059669;
+        }
+
+        .error {
+            background: #dc2626;
+        }
+
+        pre {
+            background: #222;
+            padding: 15px;
+            overflow-x: auto;
+            border: 1px solid #444;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Gemini API Connectivity Test</h1>
+    <div id="status" class="status running">Running Test...</div>
+
+    <h3>Request Config:</h3>
+    <pre id="config"></pre>
+
+    <h3>Raw Response:</h3>
+    <pre id="output"></pre>
+
+    <script>
+        const API_KEY = "AIzaSyDkwQhCgRZnCcVvGz0zRgcUMTSGFNfMvA8";
+        const MODELS_TO_TRY = [
+            "gemini-1.5-flash",
+            "gemini-1.5-flash-latest",
+            "gemini-1.5-pro",
+            "gemini-1.0-pro",
+            "gemini-pro"
+        ];
+
+        // The original config display is no longer relevant with the new testing approach.
+        // Keeping the #config element for now, but it will remain empty.
+
+        async function runTest() {
+            const outputObj = document.getElementById('output');
+            const statusDiv = document.getElementById('status');
+
+            outputObj.innerText = "Testing models...\n";
+
+            for (const model of MODELS_TO_TRY) {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
+                outputObj.innerText += `\nTrying ${model}... `;
+
+                try {
+                    const response = await fetch(url, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: "Hello" }] }] })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        outputObj.innerText += "SUCCESS! ✅\nResponse: " + JSON.stringify(data).substring(0, 100) + "...";
+                        statusDiv.innerText = `SUCCESS with ${model}`;
+                        statusDiv.className = "status success";
+                        return; // Stop on first success
+                    } else {
+                        outputObj.innerText += `FAILED (${response.status})`;
+                    }
+                } catch (e) {
+                    outputObj.innerText += `ERROR: ${e.message}`;
+                }
+            }
+
+            statusDiv.innerText = "ALL MODELS FAILED";
+            statusDiv.className = "status error";
+        }
+
+        runTest();
+    </script>
+</body>
+
+</html>

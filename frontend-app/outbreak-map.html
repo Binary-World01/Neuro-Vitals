@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>HealthIntel - Disease Outbreak Map</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #111;
+        }
+
+        #header {
+            background: #000;
+            background-image: radial-gradient(circle at 20% 50%, rgba(255, 115, 0, 0.2), transparent 60%);
+            color: white;
+            padding: 18px;
+            text-align: center;
+            position: relative;
+            border-bottom: 2px solid #ff6a00;
+            box-shadow: 0 0 40px rgba(255, 115, 0, 0.4);
+        }
+
+        #header h1 {
+            margin: 0;
+            font-size: 24px;
+            color: #ff6a00;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        #header p {
+            margin: 6px 0 0;
+            font-size: 14px;
+            color: #ffb366;
+        }
+
+        .nav-link {
+            position: absolute;
+            left: 20px;
+            top: 18px;
+            background: linear-gradient(135deg, #ff6a00, #ff3c00);
+            color: white;
+            padding: 6px 15px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 0 20px rgba(255, 115, 0, 0.7);
+        }
+
+        #refresh-btn {
+            position: absolute;
+            top: 18px;
+            right: 20px;
+            background: linear-gradient(135deg, #ff6a00, #ff3c00);
+            color: white;
+            border: none;
+            padding: 6px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        #map {
+            height: calc(100vh - 120px);
+            width: 100%;
+        }
+
+        #center-btn {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: linear-gradient(135deg, #ff6a00, #ff3c00);
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            z-index: 1000;
+        }
+
+        #legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 15px;
+            border-radius: 10px;
+            color: white;
+            box-shadow: 0 0 20px rgba(255, 115, 0, 0.4);
+            z-index: 1000;
+        }
+
+        #legend h4 {
+            margin: 0 0 10px;
+            color: #ff6a00;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="header">
+        <a href="outbreak-checker.html" class="nav-link">📋 Symptom Checker</a>
+        <h1>🗺️ NEURO VITALS - Disease Outbreak Map</h1>
+        <p>Showing ALL spreadable diseases from last 20 days • Auto-deletes after 20 days</p>
+        <button id="refresh-btn" onclick="loadAllSpreadableDiseases()">🔄 Refresh</button>
+    </div>
+
+    <div id="map"></div>
+    <button id="center-btn" onclick="centerOnLocation()">📍 Center on My Location</button>
+
+    <div id="legend">
+        <h4>📌 Map Legend</h4>
+        <div>🔴 Flu-like</div>
+        <div>🟠 Other Spreadable</div>
+        <div>🔵 Your Location</div>
+        <div id="stats">Loading...</div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        const BACKEND_URL = "http://127.0.0.1:8000/api/outbreak";
+        let map = L.map('map').setView([20.5937, 78.9629], 5);
+        let markers = [];
+        let userMarker = null;
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        function centerOnLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(position => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+
+                    if (userMarker) map.removeLayer(userMarker);
+
+                    userMarker = L.circleMarker([lat, lon], {
+                        color: 'blue',
+                        radius: 8
+                    }).addTo(map).bindPopup("Your Location");
+
+                    map.setView([lat, lon], 10);
+                });
+            }
+        }
+
+        async function loadAllSpreadableDiseases() {
+            try {
+                const response = await fetch(`${BACKEND_URL}/map`);
+                const data = await response.json();
+
+                markers.forEach(m => map.removeLayer(m));
+                markers = [];
+
+                let fluCount = 0;
+                let otherCount = 0;
+
+                if (data.diseases && data.diseases.length > 0) {
+
+                    data.diseases.forEach((disease) => {
+
+                        const lat = parseFloat(disease.latitude);
+                        const lng = parseFloat(disease.longitude);
+
+                        if (!isNaN(lat) && !isNaN(lng)) {
+
+                            const isFlu = disease.disease_category === "flu_like";
+                            const color = isFlu ? "#e74c3c" : "#e67e22";
+
+                            if (isFlu) fluCount++;
+                            else otherCount++;
+
+                            const marker = L.circleMarker([lat, lng], {
+                                radius: 8,
+                                fillColor: color,
+                                color: "#fff",
+                                weight: 2,
+                                fillOpacity: 0.9
+                            }).addTo(map);
+
+                            let precautions, advice, severity, riskColor, alertMessage;
+
+                            if (isFlu) {
+                                precautions = `
+                                • Wear a mask in public<br>
+                                • Avoid crowded places<br>
+                                • Wash hands frequently<br>
+                                • Maintain social distancing`;
+
+                                advice = `
+                                • Take proper rest<br>
+                                • Stay hydrated<br>
+                                • Monitor fever<br>
+                                • Consult a doctor if symptoms worsen`;
+
+                                severity = "HIGH RISK";
+                                riskColor = "#e74c3c";
+                                alertMessage = "⚠️ Highly contagious outbreak detected.";
+                            } else {
+                                precautions = `
+                                • Maintain hygiene<br>
+                                • Avoid close contact<br>
+                                • Disinfect surfaces regularly`;
+
+                                advice = `
+                                • Monitor symptoms<br>
+                                • Seek medical help if needed`;
+
+                                severity = "MODERATE RISK";
+                                riskColor = "#e67e22";
+                                alertMessage = "⚠️ Spreadable infection reported in this area.";
+                            }
+
+                            marker.bindPopup(`
+                            <div style="font-size:13px; line-height:1.5; min-width:230px;">
+
+                                <div style="background:${riskColor};
+                                            color:white;
+                                            padding:6px;
+                                            border-radius:6px;
+                                            text-align:center;
+                                            font-weight:bold;
+                                            margin-bottom:8px;">
+                                    🚨 ${severity}
+                                </div>
+
+                                <div style="background:#111;
+                                            color:#ff6a00;
+                                            padding:6px;
+                                            border-radius:6px;
+                                            font-size:12px;
+                                            margin-bottom:10px;">
+                                    ${alertMessage}
+                                </div>
+
+                                <b>🛡️ Precautions:</b><br>
+                                ${precautions}<br><br>
+
+                                <b>💡 Medical Advice:</b><br>
+                                ${advice}
+
+                            </div>
+                        `);
+
+                            markers.push(marker);
+                        }
+                    });
+
+                    document.getElementById("stats").innerHTML =
+                        `Total: ${data.diseases.length}<br>
+                     🔴 Flu: ${fluCount}<br>
+                     🟠 Other: ${otherCount}`;
+
+                } else {
+                    document.getElementById("stats").innerHTML = "No active outbreaks";
+                }
+
+            } catch (err) {
+                console.error("Error loading outbreaks:", err);
+                document.getElementById("stats").innerHTML = "Error loading data";
+            }
+        }
+
+        loadAllSpreadableDiseases();
+    </script>
+
+</body>
+
+</html>

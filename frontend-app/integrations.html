@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Neuro-Vitals | Device Integrations Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&family=Outfit:wght@500;600;700;800&family=Fira+Code:wght@400;500&display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+        rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/supabase-config.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec5b13",
+                        "primary-dark": "#c2410b",
+                        "accent-cyan": "#06b6d4",
+                        "accent-purple": "#8b5cf6",
+                        "bg-dark": "#050505",
+                        "bg-card": "rgba(255, 255, 255, 0.03)",
+                    },
+                    fontFamily: {
+                        "sans": ["Public Sans", "sans-serif"],
+                        "display": ["Outfit", "sans-serif"],
+                        "mono": ["Fira Code", "monospace"],
+                    },
+                    backgroundImage: {
+                        'grid-pattern': "linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px)",
+                    },
+                    animation: {
+                        'pulse-glow': 'pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'scan-line': 'scan 3s linear infinite',
+                    },
+                    keyframes: {
+                        'pulse-glow': {
+                            '0%, 100%': { opacity: 1, boxShadow: '0 0 20px rgba(6, 182, 212, 0.5)' },
+                            '50%': { opacity: .5, boxShadow: '0 0 10px rgba(6, 182, 212, 0.2)' },
+                        },
+                        'scan': {
+                            '0%': { transform: 'translateY(-100%)' },
+                            '100%': { transform: 'translateY(100%)' },
+                        }
+                    }
+                }
+            }
+        };
+    </script>
+    <style>
+        body {
+            background-color: #050505;
+            color: #e2e8f0;
+            overflow-x: hidden;
+        }
+
+        .bg-grid {
+            background-size: 40px 40px;
+            mask-image: linear-gradient(to bottom, transparent, black, transparent);
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%);
+        }
+
+        .glass-panel {
+            background: rgba(10, 10, 10, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+        }
+
+        .glass-panel:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+            background: rgba(20, 20, 20, 0.7);
+        }
+
+        .cyber-border {
+            position: relative;
+        }
+
+        .cyber-border::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(236, 91, 19, 0.5), transparent);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        ::-webkit-scrollbar-track {
+            bg: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 10px;
+        }
+
+        .terminal-text {
+            text-shadow: 0 0 5px rgba(34, 197, 94, 0.5);
+        }
+
+        /* ── Google Fit Live Panel ── */
+        #gfitLivePanel {
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes gfit-slide-in {
+            from {
+                opacity: 0;
+                transform: translateY(16px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .gfit-stat-card {
+            background: rgba(10, 10, 10, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.3s ease;
+        }
+
+        .gfit-stat-card:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .gfit-card-glow:hover {
+            box-shadow: 0 0 30px rgba(66, 133, 244, 0.2);
+        }
+    </style>
+</head>
+
+<body class="flex">
+
+    <!-- Sidebar (Keeping consistent) -->
+    <aside id="sidebar"
+        class="fixed inset-y-0 left-0 w-20 lg:w-64 bg-black/90 backdrop-blur-xl border-r border-white/5 z-50 flex flex-col transition-all duration-300">
+        <div class="h-20 flex items-center justify-center lg:justify-start lg:px-6 border-b border-white/5">
+            <div
+                class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-white shadow-lg shadow-primary/30">
+                <span class="material-symbols-rounded">neurology</span>
+            </div>
+            <span class="ml-3 font-display font-bold text-xl tracking-tight hidden lg:block">Neuro-Vitals</span>
+        </div>
+
+        <nav class="flex-1 py-6 px-3 space-y-2">
+            <a href="dashboard.html"
+                class="flex items-center gap-3 px-3 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all group">
+                <span class="material-symbols-rounded group-hover:scale-110 transition-transform">grid_view</span>
+                <span class="hidden lg:block font-medium">Dashboard</span>
+            </a>
+            <a href="symptom-analysis.html"
+                class="flex items-center gap-3 px-3 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all group">
+                <span class="material-symbols-rounded group-hover:scale-110 transition-transform">health_metrics</span>
+                <span class="hidden lg:block font-medium">Analysis</span>
+            </a>
+            <a href="adversarial-diagnosis.html"
+                class="flex items-center gap-3 px-3 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all group">
+                <span class="material-symbols-rounded group-hover:scale-110 transition-transform">swords</span>
+                <span class="hidden lg:block font-medium">Diagnosis Arena</span>
+            </a>
+            <a href="health-trajectory.html"
+                class="flex items-center gap-3 px-3 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all group">
+                <span class="material-symbols-rounded group-hover:scale-110 transition-transform">monitoring</span>
+                <span class="hidden lg:block font-medium">Trends</span>
+            </a>
+            <a href="integrations.html"
+                class="flex items-center gap-3 px-3 py-3 rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-lg shadow-primary/5">
+                <span class="material-symbols-rounded animate-pulse">devices_wearables</span>
+                <span class="hidden lg:block font-bold">Integrations Hub</span>
+            </a>
+            <a href="risk-engine.html"
+                class="flex items-center gap-3 px-3 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all group">
+                <span class="material-symbols-rounded group-hover:scale-110 transition-transform">vital_signs</span>
+                <span class="hidden lg:block font-medium">Risk Engine</span>
+            </a>
+            <a href="outbreak-checker.html"
+                class="flex items-center gap-3 px-3 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all group">
+                <span class="material-symbols-rounded group-hover:scale-110 transition-transform">coronavirus</span>
+                <span class="hidden lg:block font-medium">Outbreak</span>
+            </a>
+            <a href="community-health.html"
+                class="flex items-center gap-3 px-3 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all group">
+                <span class="material-symbols-rounded group-hover:scale-110 transition-transform">groups</span>
+                <span class="hidden lg:block font-medium">Community</span>
+            </a>
+        </nav>
+
+        <div class="p-4 border-t border-white/5">
+            <div class="flex items-center gap-3 px-3 py-3">
+                <div
+                    class="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center font-bold text-xs ring-2 ring-white/10">
+                    JD</div>
+                <div class="hidden lg:block">
+                    <p class="text-sm font-bold">Dr. John Doe</p>
+                    <p class="text-xs text-slate-500">Neurologist</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 ml-20 lg:ml-64 relative min-h-screen bg-bg-dark">
+        <!-- Background Grid FX -->
+        <div class="absolute inset-0 bg-grid-pattern bg-grid opacity-20 pointer-events-none"></div>
+        <div
+            class="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px] pointer-events-none">
+        </div>
+        <div
+            class="absolute bottom-0 left-0 w-[500px] h-[500px] bg-accent-cyan/5 rounded-full blur-[120px] pointer-events-none">
+        </div>
+
+        <!-- Header -->
+        <header
+            class="sticky top-0 z-40 bg-bg-dark/80 backdrop-blur-md border-b border-white/5 px-8 py-4 flex items-center justify-between">
+            <div>
+                <h1 class="font-display font-bold text-2xl text-white">Integrations Hub</h1>
+                <p class="text-sm text-slate-400 dark:text-slate-400">Manage external data sources & wearable streams
+                </p>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <div class="bg-white/5 rounded-full px-4 py-1.5 border border-white/10 flex items-center gap-2">
+                    <div id="systemStatusDot" class="w-2 h-2 rounded-full bg-slate-500"></div>
+                    <span id="systemStatusText" class="text-xs font-mono text-slate-400">SYSTEM_IDLE</span>
+                </div>
+                <button
+                    class="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors">
+                    <span class="material-symbols-rounded text-slate-400">settings</span>
+                </button>
+            </div>
+        </header>
+
+        <div class="p-8 max-w-7xl mx-auto space-y-8 relative z-10">
+
+            <!-- Hero Status Section -->
+            <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Connectivity Status -->
+                <div class="glass-panel rounded-2xl p-6 md:col-span-2 relative overflow-hidden">
+                    <div id="scanLine"
+                        class="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -skew-x-12 translate-x-[-100%] opacity-10">
+                    </div>
+
+                    <div class="flex justify-between items-start mb-6">
+                        <div>
+                            <h3 class="text-lg font-display font-bold text-white">Data Stream Status</h3>
+                            <p class="text-sm text-slate-400">Real-time ingestion latency & throughput</p>
+                        </div>
+                        <div id="connectionBadge"
+                            class="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-500/10 border border-slate-500/20 transition-all duration-300">
+                            <span class="material-symbols-rounded text-slate-500 text-sm">wifi_off</span>
+                            <span class="text-xs font-bold text-slate-500">DISCONNECTED</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-end gap-1 h-32 w-full" id="equalizer">
+                        <!-- Bars generated by JS -->
+                    </div>
+                </div>
+
+                <!-- Quick Stats -->
+                <div class="space-y-6">
+                    <div class="glass-panel p-5 rounded-2xl flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-slate-400 uppercase font-bold tracking-wider">Active Devices</p>
+                            <p class="text-2xl font-display font-bold text-white" id="activeDeviceCount">0</p>
+                        </div>
+                        <div class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-slate-300">
+                            <span class="material-symbols-rounded">watch</span>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-5 rounded-2xl flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-slate-400 uppercase font-bold tracking-wider">Packets / Min</p>
+                            <p class="text-2xl font-display font-bold text-slate-500 transition-colors" id="packetRate">
+                                0</p>
+                        </div>
+                        <div class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-slate-500"
+                            id="packetIcon">
+                            <span class="material-symbols-rounded">speed</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Device Cards Grid -->
+            <div>
+                <h3 class="text-lg font-display font-bold text-white mb-6 flex items-center gap-2">
+                    <span class="material-symbols-rounded text-primary">link</span>
+                    Available Platforms
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+                    <!-- Google Health Connect -->
+                    <div
+                        class="glass-panel rounded-2xl p-0 overflow-hidden group hover:shadow-glow transition-all duration-300 transform hover:-translate-y-1">
+                        <div
+                            class="h-32 bg-gradient-to-br from-blue-900/30 to-purple-900/10 flex items-center justify-center relative p-6">
+                            <svg class="w-14 h-14 drop-shadow-lg group-hover:scale-110 transition-transform duration-300"
+                                viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M24 4C12.95 4 4 12.95 4 24C4 35.05 12.95 44 24 44C35.05 44 44 35.05 44 24C44 12.95 35.05 4 24 4Z"
+                                    fill="#1C1B1F" />
+                                <path d="M12.5 22.5L16 26L19 23L22 26L35.5 12.5" stroke="#4285F4" stroke-width="3"
+                                    stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M12.5 30.5L16 34L19 31L22 34L35.5 20.5" stroke="#34A853" stroke-width="3"
+                                    stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            <div
+                                class="absolute bottom-2 right-2 px-2 py-0.5 rounded text-[10px] font-bold bg-green-500/20 border border-green-500/30 text-green-400">
+                                READY</div>
+                        </div>
+                        <div class="p-6">
+                            <h4 class="font-bold text-lg text-white mb-1">Health Connect</h4>
+                            <p class="text-sm text-slate-400 mb-4 h-10 line-clamp-2">Unified Android health data. Syncs
+                                heart rate, sleep stages, steps.</p>
+
+                            <button onclick="HealthConnect.connect()" id="connectHealthCtx"
+                                class="w-full py-3 rounded-xl bg-primary/20 hover:bg-primary/30 border border-primary/20 text-sm font-semibold text-primary transition-all flex items-center justify-center gap-2 group-hover:shadow-lg shadow-primary/10">
+                                <span>Connect Platform</span>
+                                <span class="material-symbols-rounded text-xs">arrow_forward</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Google Sheets Bridge -->
+                    <div
+                        class="glass-panel rounded-2xl p-0 overflow-hidden group hover:shadow-[0_0_20px_rgba(34,197,94,0.2)] transition-all duration-300 transform hover:-translate-y-1">
+                        <div
+                            class="h-32 bg-gradient-to-br from-green-900/30 to-emerald-900/10 flex items-center justify-center relative">
+                            <svg class="w-14 h-14 drop-shadow-lg group-hover:scale-110 transition-transform duration-300"
+                                viewBox="0 0 87.3 133.2" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M43.7 0l43.6 43.6v89.6H0V0h43.7z" fill="#0F9D58" />
+                                <path d="M43.7 0L0 43.6h43.7V0z" fill="#006633" opacity=".2" />
+                                <path d="M30 87h27.4v7.4H30V87zm0-18h27.4v7.4H30V69zm0-18h27.4v7.4H30V51z"
+                                    fill="#F1F1F1" />
+                            </svg>
+                            <div
+                                class="absolute bottom-2 right-2 px-2 py-0.5 rounded text-[10px] font-bold bg-green-500/20 border border-green-500/30 text-green-400">
+                                REAL DATA</div>
+                        </div>
+                        <div class="p-6">
+                            <h4 class="font-bold text-lg text-white mb-1">Google Sheets Bridge</h4>
+                            <p class="text-sm text-slate-400 mb-4 h-10 line-clamp-2">Sync real-time data from
+                                Noise/Fitbit via Health Sync CSV.</p>
+
+                            <button onclick="openSheetsModal()" id="connectSheetsBtn"
+                                class="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-sm font-semibold text-white transition-all flex items-center justify-center gap-2 group-hover:border-green-500/50 group-hover:text-green-400">
+                                <span>Connect Sheet</span>
+                                <span class="material-symbols-rounded text-xs">link</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Apple Health (New) -->
+                    <div
+                        class="glass-panel rounded-2xl p-0 overflow-hidden group opacity-75 hover:opacity-100 transition-all duration-300">
+                        <div
+                            class="h-32 bg-gradient-to-br from-red-900/30 to-pink-900/10 flex items-center justify-center relative">
+                            <svg class="w-14 h-14 drop-shadow-lg group-hover:scale-110 transition-transform duration-300"
+                                viewBox="0 0 384 512" fill="white" xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5c0 62.6 24 130.9 64 188.9 19 28.1 41.5 56.4 69 56.1 27.5-.3 37.9-17.7 71.9-17.7 33.7 0 43.1 17.7 72.8 17.7 29.3.3 50-24.8 69.2-56.4 20.7-33.1 29.3-64.6 29.3-65.7-.2-1.2-27.5-11-27.5-76.7zM242.6 90.7c15.3-17.7 25.8-42.6 23.1-66.9-22 1.3-49.8 15-66.3 35.8-15 18.2-26.6 44.4-23.7 67.5 24.3 2 48.7-17.9 66.9-36.4z" />
+                            </svg>
+                            <div
+                                class="absolute bottom-2 right-2 px-2 py-0.5 rounded text-[10px] font-bold bg-white/10 border border-white/20 text-slate-300">
+                                COMING SOON</div>
+                        </div>
+                        <div class="p-6">
+                            <h4 class="font-bold text-lg text-white mb-1">Apple Health</h4>
+                            <p class="text-sm text-slate-400 mb-4 h-10 line-clamp-2">Sync data from iPhone and Apple
+                                Watch via HealthKit.</p>
+
+                            <button disabled
+                                class="w-full py-3 rounded-xl bg-white/5 border border-white/5 text-sm font-bold text-slate-500 cursor-not-allowed">
+                                Coming Soon
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Fitbit -->
+                    <div
+                        class="glass-panel rounded-2xl p-0 overflow-hidden group opacity-75 hover:opacity-100 transition-all duration-300">
+                        <div
+                            class="h-32 bg-gradient-to-br from-teal-900/30 to-emerald-900/10 flex items-center justify-center relative">
+                            <span
+                                class="material-symbols-rounded text-6xl text-teal-400 drop-shadow-lg group-hover:scale-110 transition-transform duration-300">watch</span>
+                            <div
+                                class="absolute bottom-2 right-2 px-2 py-0.5 rounded text-[10px] font-bold bg-white/10 border border-white/20 text-slate-300">
+                                COMING SOON</div>
+                        </div>
+                        <div class="p-6">
+                            <h4 class="font-bold text-lg text-white mb-1">Fitbit Web API</h4>
+                            <p class="text-sm text-slate-400 mb-4 h-10 line-clamp-2">Direct cloud sync for SpO2, HRV,
+                                and stress scores.</p>
+
+                            <button disabled
+                                class="w-full py-3 rounded-xl bg-white/5 border border-white/5 text-sm font-bold text-slate-500 cursor-not-allowed">
+                                Coming Soon
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Oura -->
+                    <div
+                        class="glass-panel rounded-2xl p-0 overflow-hidden group opacity-75 hover:opacity-100 transition-all duration-300">
+                        <div
+                            class="h-32 bg-gradient-to-br from-slate-800/50 to-black flex items-center justify-center relative">
+                            <span
+                                class="material-symbols-rounded text-6xl text-white drop-shadow-lg group-hover:scale-110 transition-transform duration-300">ring_volume</span>
+                            <div
+                                class="absolute bottom-2 right-2 px-2 py-0.5 rounded text-[10px] font-bold bg-white/10 border border-white/20 text-slate-300">
+                                COMING SOON</div>
+                        </div>
+                        <div class="p-6">
+                            <h4 class="font-bold text-lg text-white mb-1">Oura Cloud</h4>
+                            <p class="text-sm text-slate-400 mb-4 h-10 line-clamp-2">Precise sleep tracking and
+                                "Readiness" scores.</p>
+
+                            <button disabled
+                                class="w-full py-3 rounded-xl bg-white/5 border border-white/5 text-sm font-bold text-slate-500 cursor-not-allowed">
+                                Coming Soon
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- ★ Google Fit — Real API ★ -->
+                    <div
+                        class="gfit-card-glow glass-panel rounded-2xl p-0 overflow-hidden group hover:shadow-glow transition-all duration-300 transform hover:-translate-y-1">
+                        <div
+                            class="h-32 bg-gradient-to-br from-blue-900/40 to-green-900/20 flex items-center justify-center relative p-6">
+                            <svg class="w-14 h-14 drop-shadow-lg group-hover:scale-110 transition-transform duration-300"
+                                viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="24" cy="24" r="20" fill="#1a1a2e" />
+                                <path
+                                    d="M24 12 C24 12, 32 18, 32 26 C32 30.4 28.4 34 24 34 C19.6 34 16 30.4 16 26 C16 18 24 12 24 12Z"
+                                    fill="none" stroke="#4285F4" stroke-width="2.5" stroke-linecap="round" />
+                                <path d="M18 28 L22 32 L30 22" stroke="#34A853" stroke-width="2.5"
+                                    stroke-linecap="round" stroke-linejoin="round" fill="none" />
+                                <circle cx="24" cy="26" r="3" fill="#EA4335" opacity="0.9" />
+                            </svg>
+                            <div
+                                class="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 border border-blue-500/30 text-blue-300">
+                                NEW</div>
+                            <div
+                                class="absolute bottom-2 right-2 px-2 py-0.5 rounded text-[10px] font-bold bg-green-500/20 border border-green-500/30 text-green-400">
+                                LIVE API</div>
+                        </div>
+                        <div class="p-6">
+                            <h4 class="font-bold text-lg text-white mb-1">Google Fit <span
+                                    class="text-xs font-normal text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded-full border border-blue-500/20">Real
+                                    Data</span></h4>
+                            <p class="text-sm text-slate-400 mb-4 h-10 line-clamp-2">Direct OAuth API. Fetches your
+                                Noise watch data synced via NoiseFit.</p>
+                            <div class="flex flex-col gap-2">
+                                <button onclick="GoogleFitAPI.connect()" id="gfitConnectBtn"
+                                    class="w-full py-3 rounded-xl bg-primary/20 hover:bg-primary/30 border border-primary/20 text-sm font-semibold text-primary transition-all flex items-center justify-center gap-2 group-hover:shadow-lg shadow-primary/10">
+                                    <span class="material-symbols-rounded text-xs">fitness_center</span>
+                                    <span>Connect Real API</span>
+                                </button>
+                                <button onclick="HealthConnect.connect()"
+                                    class="w-full py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-dashed border-white/20 text-[10px] font-bold text-slate-400 uppercase tracking-widest transition-all">
+                                    Try Demo Mode (Offline)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Google Fit Live Data Panel (shown after OAuth) -->
+            <div id="gfitLivePanel" class="hidden">
+                <h3 class="text-lg font-display font-bold text-white mb-4 flex items-center gap-2">
+                    <span class="material-symbols-rounded text-green-400 animate-pulse">sensors</span>
+                    Google Fit — Live Watch Data
+                    <span
+                        class="text-xs font-normal text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full border border-green-500/20 ml-2">●
+                        LIVE</span>
+                </h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="gfit-stat-card rounded-2xl p-5 flex flex-col gap-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-slate-400 uppercase font-bold tracking-wider">Steps Today</span>
+                            <span class="material-symbols-rounded text-accent-cyan text-lg">directions_walk</span>
+                        </div>
+                        <p id="gfit-steps" class="text-2xl font-display font-bold text-white">—</p>
+                        <p class="text-[10px] text-slate-500 font-mono">Source: Google Fit API</p>
+                    </div>
+                    <div class="gfit-stat-card rounded-2xl p-5 flex flex-col gap-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-slate-400 uppercase font-bold tracking-wider">Heart Rate</span>
+                            <span class="material-symbols-rounded text-red-400 text-lg">favorite</span>
+                        </div>
+                        <p id="gfit-hr" class="text-2xl font-display font-bold text-white">—</p>
+                        <p class="text-[10px] text-slate-500 font-mono">Latest reading</p>
+                    </div>
+                    <div class="gfit-stat-card rounded-2xl p-5 flex flex-col gap-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-slate-400 uppercase font-bold tracking-wider">Sleep</span>
+                            <span class="material-symbols-rounded text-purple-400 text-lg">bedtime</span>
+                        </div>
+                        <p id="gfit-sleep" class="text-2xl font-display font-bold text-white">—</p>
+                        <p class="text-[10px] text-slate-500 font-mono">Last 24 hours</p>
+                    </div>
+                    <div class="gfit-stat-card rounded-2xl p-5 flex flex-col gap-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-slate-400 uppercase font-bold tracking-wider">Calories</span>
+                            <span class="material-symbols-rounded text-yellow-400 text-lg">local_fire_department</span>
+                        </div>
+                        <p id="gfit-calories" class="text-2xl font-display font-bold text-white">—</p>
+                        <p class="text-[10px] text-slate-500 font-mono">Active calories today</p>
+                    </div>
+                </div>
+                <div class="mt-3 flex justify-end">
+                    <button onclick="GoogleFitAPI.disconnect()"
+                        class="text-xs text-slate-500 hover:text-red-400 transition-colors flex items-center gap-1">
+                        <span class="material-symbols-rounded text-sm">link_off</span> Disconnect
+                    </button>
+                </div>
+            </div>
+
+            <!-- Terminal Console -->
+            <div class="glass-panel rounded-2xl border-white/10 overflow-hidden flex flex-col h-72">
+                <div class="bg-black/40 px-4 py-2 flex items-center justify-between border-b border-white/5">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-rounded text-slate-500 text-sm">terminal</span>
+                        <span class="text-xs font-mono font-bold text-slate-400">INGESTION_LOGS</span>
+                    </div>
+                    <div class="flex gap-1.5">
+                        <div class="w-2.5 h-2.5 rounded-full bg-slate-700"></div>
+                        <div class="w-2.5 h-2.5 rounded-full bg-slate-700"></div>
+                        <div class="w-2.5 h-2.5 rounded-full bg-slate-700"></div>
+                    </div>
+                </div>
+                <div class="flex-1 bg-black/80 p-4 font-mono text-xs overflow-y-auto" id="consoleOutput">
+                    <div class="text-slate-600 mb-2">> System initialized.</div>
+                    <div class="text-slate-600 mb-2">> Waiting for active data streams...</div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Mock Google OAuth Modal (Interactive) -->
+    <div id="googleOAuthModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeGoogleModal()"></div>
+        <div
+            class="bg-white text-gray-900 rounded-2xl w-full max-w-[400px] overflow-hidden relative shadow-2xl animate-pop-in font-sans flex flex-col min-h-[500px]">
+
+            <!-- View 1: Email Input -->
+            <div id="googleStepEmail" class="p-8 flex-1 flex flex-col">
+                <div class="flex justify-center mb-6">
+                    <svg viewBox="0 0 48 48" width="48" height="48" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M44.5 20H24v8.5h11.8C34.7 33.9 30.1 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z"
+                            fill="#FFC107" />
+                        <path
+                            d="M43.6 20H44.5c.3 1.3.5 2.7.5 4 0 14-10 22-21 22-12.2 0-22-9.8-22-22 0-12.2 9.8-22 22-22 5.6 0 10.6 2.1 14.6 5.5l-6.4 6.4C30 11.1 27.1 10 24 10c-7.2 0-13 5.8-13 13s5.8 13 13 13c6.1 0 10.7-3.1 11.8-8.5H24V20h19.6z"
+                            fill="#FF3D00" />
+                        <path
+                            d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 16.3 2 9.6 6.9 6.3 14.7z"
+                            fill="#4CAF50" />
+                        <path
+                            d="M24 37c6.1 0 10.7-3.1 11.8-8.5H23.9v-.1l11.9-8.4c-1.1-6.9-7-12-14-12-7.2 0-13 5.8-13 13s5.8 13 13 13z"
+                            fill="#1976D2" />
+                    </svg>
+                </div>
+
+                <h3 class="text-center text-2xl font-normal mb-2 text-gray-800">Sign in</h3>
+                <p class="text-center text-base text-gray-800 mb-8">to continue to <span
+                        class="font-bold text-primary">Neuro-Vitals</span></p>
+
+                <div class="relative mb-8 group">
+                    <input type="email" id="inputEmail"
+                        class="peer w-full border border-gray-300 rounded px-3 py-3 text-base text-gray-900 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 placeholder-transparent transition-all"
+                        placeholder="Email or phone" autocomplete="off">
+                    <label for="inputEmail"
+                        class="absolute left-3 -top-2.5 bg-white px-1 text-xs text-blue-600 transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-500 peer-placeholder-shown:top-3.5 peer-focus:-top-2.5 peer-focus:text-xs peer-focus:text-blue-600">Email
+                        or phone</label>
+                </div>
+
+                <div class="flex-1">
+                    <a href="#" class="text-sm font-medium text-blue-600 hover:bg-blue-50 rounded p-1 -ml-1">Forgot
+                        email?</a>
+                </div>
+
+                <div class="p-6 text-sm text-gray-500">
+                    Not your computer? Use Guest mode to sign in privately. <a href="#"
+                        class="text-blue-600 font-medium">Learn more</a>
+                </div>
+
+                <div class="flex justify-between items-center mt-auto">
+                    <a href="#" class="text-sm font-medium text-blue-600 hover:bg-blue-50 rounded px-2 py-1">Create
+                        account</a>
+                    <button onclick="goToPasswordStep()"
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-2 rounded-full transition-colors shadow-sm">Next</button>
+                </div>
+            </div>
+
+            <!-- View 2: Password Input (Hidden) -->
+            <div id="googleStepPassword" class="p-8 flex-1 flex flex-col hidden animate-slide-left">
+                <div class="flex justify-center mb-6">
+                    <svg viewBox="0 0 48 48" width="48" height="48" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M44.5 20H24v8.5h11.8C34.7 33.9 30.1 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z"
+                            fill="#FFC107" />
+                        <path
+                            d="M43.6 20H44.5c.3 1.3.5 2.7.5 4 0 14-10 22-21 22-12.2 0-22-9.8-22-22 0-12.2 9.8-22 22-22 5.6 0 10.6 2.1 14.6 5.5l-6.4 6.4C30 11.1 27.1 10 24 10c-7.2 0-13 5.8-13 13s5.8 13 13 13c6.1 0 10.7-3.1 11.8-8.5H24V20h19.6z"
+                            fill="#FF3D00" />
+                        <path
+                            d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 16.3 2 9.6 6.9 6.3 14.7z"
+                            fill="#4CAF50" />
+                        <path
+                            d="M24 37c6.1 0 10.7-3.1 11.8-8.5H23.9v-.1l11.9-8.4c-1.1-6.9-7-12-14-12-7.2 0-13 5.8-13 13s5.8 13 13 13z"
+                            fill="#1976D2" />
+                    </svg>
+                </div>
+
+                <h3 class="text-center text-2xl font-normal mb-2 text-gray-800">Welcome</h3>
+
+                <div class="flex justify-center mb-8">
+                    <div class="flex items-center gap-2 border border-gray-200 rounded-full px-3 py-1 cursor-pointer hover:bg-gray-50 transition-colors"
+                        onclick="goBackToEmail()">
+                        <div class="w-5 h-5 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs font-bold"
+                            id="userInitial">U</div>
+                        <span class="text-sm text-gray-600 font-medium" id="displayEmail">user@example.com</span>
+                        <span class="material-symbols-rounded text-sm text-gray-500">expand_more</span>
+                    </div>
+                </div>
+
+                <div class="relative mb-8 group">
+                    <input type="password" id="inputPassword"
+                        class="peer w-full border border-gray-300 rounded px-3 py-3 text-base text-gray-900 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 placeholder-transparent transition-all"
+                        placeholder="Enter your password">
+                    <label for="inputPassword"
+                        class="absolute left-3 -top-2.5 bg-white px-1 text-xs text-blue-600 transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-500 peer-placeholder-shown:top-3.5 peer-focus:-top-2.5 peer-focus:text-xs peer-focus:text-blue-600">Enter
+                        your password</label>
+                </div>
+
+                <div class="flex-1">
+                    <div class="flex items-center gap-2 mb-4">
+                        <input type="checkbox" id="showPass"
+                            class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                            onclick="togglePassword()">
+                        <label for="showPass" class="text-sm text-gray-600">Show password</label>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center mt-auto">
+                    <a href="#" class="text-sm font-medium text-blue-600 hover:bg-blue-50 rounded px-2 py-1">Forgot
+                        password?</a>
+                    <button onclick="submitPassword()"
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-2 rounded-full transition-colors shadow-sm">Next</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Cloud Sheets Modal -->
+    <div id="googleSheetsModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-md" onclick="closeSheetsModal()"></div>
+        <div
+            class="bg-[#111] text-white border border-white/10 rounded-2xl w-full max-w-lg overflow-hidden relative shadow-2xl animate-pop-in font-sans">
+            <div class="p-6 border-b border-white/10 flex justify-between items-center">
+                <h3 class="text-xl font-display font-bold">Connect Google Sheet</h3>
+                <button onclick="closeSheetsModal()" class="text-slate-400 hover:text-white"><span
+                        class="material-symbols-rounded">close</span></button>
+            </div>
+
+            <div class="p-6 space-y-6">
+                <div class="bg-blue-900/20 border border-blue-500/30 p-4 rounded-lg flex gap-3">
+                    <span class="material-symbols-rounded text-blue-400 shrink-0">info</span>
+                    <div class="text-sm text-slate-300">
+                        <p class="font-bold text-blue-400 mb-1">How to connect real data:</p>
+                        <ol class="list-decimal pl-4 space-y-1 text-xs">
+                            <li>Use "Health Sync" app to sync Watch data to valid Google Sheet.</li>
+                            <li>In Google Sheets: <b>File > Share > Publish to web</b>.</li>
+                            <li>Select "Entire Document" and <b>"Comma-separated values (.csv)"</b>.</li>
+                            <li>Copy and paste the link below.</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Published CSV
+                        Link</label>
+                    <input type="text" id="sheetUrl"
+                        placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv"
+                        class="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none transition-all font-mono">
+                </div>
+            </div>
+
+            <div class="p-6 border-t border-white/10 bg-white/5 flex justify-end gap-3">
+                <button onclick="closeSheetsModal()"
+                    class="px-4 py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white transition-colors">Cancel</button>
+                <button onclick="connectSheets()"
+                    class="px-6 py-2 rounded-lg text-sm font-bold text-black bg-green-500 hover:bg-green-400 transition-colors shadow-lg shadow-green-500/20 flex items-center gap-2">
+                    <span class="material-symbols-rounded">link</span>
+                    Connect Bridge
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Source Selection Modal (Clarification) -->
+    <div id="dataSourceModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-md" onclick="closeDataSourceModal()"></div>
+        <div
+            class="bg-[#111] text-white border border-white/10 rounded-2xl w-full max-w-md overflow-hidden relative shadow-2xl animate-pop-in font-sans">
+            <div class="p-6 border-b border-white/10">
+                <h3 class="text-xl font-display font-bold text-center">Select Data Source</h3>
+            </div>
+
+            <div class="p-6 flex flex-col gap-4">
+                <button onclick="selectSimulation()"
+                    class="group relative p-4 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-blue-500/50 transition-all text-left">
+                    <div class="flex items-center gap-4">
+                        <div
+                            class="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
+                            <span class="material-symbols-rounded">smart_toy</span>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-white group-hover:text-blue-400 transition-colors">Demo Simulation
+                            </h4>
+                            <p class="text-xs text-slate-400">Uses advanced algorithms to generate realistic data for
+                                testing.</p>
+                        </div>
+                    </div>
+                </button>
+
+                <div class="flex items-center gap-4">
+                    <div class="h-px bg-white/10 flex-1"></div>
+                    <span class="text-xs text-slate-500 font-bold uppercase">OR</span>
+                    <div class="h-px bg-white/10 flex-1"></div>
+                </div>
+
+                <button onclick="selectRealData()"
+                    class="group relative p-4 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-green-500/50 transition-all text-left">
+                    <div class="flex items-center gap-4">
+                        <div
+                            class="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 group-hover:scale-110 transition-transform">
+                            <span class="material-symbols-rounded">link</span>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-white group-hover:text-green-400 transition-colors">Real Data
+                                (Live)</h4>
+                            <p class="text-xs text-slate-400">Connect to your Watch via Google Sheets Bridge.</p>
+                        </div>
+                    </div>
+                </button>
+            </div>
+
+            <div class="p-4 text-center">
+                <button onclick="closeDataSourceModal()"
+                    class="text-slate-500 hover:text-white text-xs underline">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Permission Scope Modal (Step 3) -->
+    <div id="permissionModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+        <div
+            class="bg-white text-gray-900 rounded-lg w-full max-w-[400px] overflow-hidden relative shadow-2xl animate-pop-in font-sans">
+            <div class="p-6">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-8 h-8 bg-gray-100 rounded p-1">
+                        <svg viewBox="0 0 48 48" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M24 4C12.95 4 4 12.95 4 24C4 35.05 12.95 44 24 44C35.05 44 44 35.05 44 24C44 12.95 35.05 4 24 4Z"
+                                fill="#1C1B1F" />
+                            <path d="M12.5 22.5L16 26L19 23L22 26L35.5 12.5" stroke="#4285F4" stroke-width="3"
+                                stroke-linecap="round" stroke-linejoin="round" />
+                            <path d="M12.5 30.5L16 34L19 31L22 34L35.5 20.5" stroke="#34A853" stroke-width="3"
+                                stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-medium">Neuro-Vitals wants access to your Google Account</h3>
+                </div>
+
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-3 mb-4 rounded-r text-sm text-blue-800"
+                    id="permissionEmail">
+                    user@example.com
+                </div>
+
+                <div class="space-y-4 mb-6">
+                    <div class="flex items-start gap-3">
+                        <span class="material-symbols-rounded text-gray-400 mt-0.5">directions_walk</span>
+                        <div>
+                            <p class="text-sm text-gray-700 font-medium">See and download your physical activity data
+                            </p>
+                            <p class="text-xs text-gray-500">Google Fit, health stats, step count</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span class="material-symbols-rounded text-gray-400 mt-0.5">favorite</span>
+                        <div>
+                            <p class="text-sm text-gray-700 font-medium">See your heart rate data</p>
+                            <p class="text-xs text-gray-500">BPM, HRV history</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3 mt-8">
+                    <button onclick="closePermissionModal()"
+                        class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
+                    <button onclick="finishGoogleAuth()"
+                        class="px-6 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded shadow-md">Allow</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/health-connect-mock.js"></script>
+    <script src="js/google-fit-api.js"></script>
+    <script>
+        // Constants
+        window.isConnected = false;
+        window.packetInterval = null;
+        window.currentUserEmail = "";
+        window.sheetUrl = ""; // Stored CSV URL
+
+        // --- Data Source Selection ---
+        function HealthConnect_connect() {
+            if (window.isConnected) return;
+            document.getElementById('dataSourceModal').classList.remove('hidden');
+        }
+        // Patch standard call to use our new function
+        HealthConnect.connect = HealthConnect_connect;
+
+        function closeDataSourceModal() {
+            document.getElementById('dataSourceModal').classList.add('hidden');
+        }
+
+        function selectSimulation() {
+            closeDataSourceModal();
+            // Proceed to Mock OAuth
+            document.getElementById('googleOAuthModal').classList.remove('hidden');
+            // Reset form
+            document.getElementById('googleStepEmail').classList.remove('hidden');
+            document.getElementById('googleStepPassword').classList.add('hidden');
+            document.getElementById('inputEmail').value = "";
+            document.getElementById('inputPassword').value = "";
+            document.getElementById('inputEmail').focus();
+        }
+
+        function selectRealData() {
+            closeDataSourceModal();
+            openSheetsModal();
+        }
+
+        // --- Google Sheets Logic ---
+        function openSheetsModal() {
+            document.getElementById('googleSheetsModal').classList.remove('hidden');
+        }
+
+        function closeSheetsModal() {
+            document.getElementById('googleSheetsModal').classList.add('hidden');
+        }
+
+        function connectSheets() {
+            const url = document.getElementById('sheetUrl').value;
+            if (!url || !url.includes('google.com') || !url.includes('output=csv')) {
+                alert("Please enter a valid Google Sheets CSV link (must contain 'output=csv').");
+                return;
+            }
+            window.sheetUrl = url;
+            closeSheetsModal();
+
+            // Update UI
+            const btn = document.getElementById('connectSheetsBtn');
+            btn.innerHTML = `<span class="material-symbols-rounded animate-spin">sync</span> Verifying...`;
+
+            // Test Fetch
+            fetch(url)
+                .then(r => r.text())
+                .then(data => {
+                    if (data.length > 10) {
+                        // Success
+                        btn.innerHTML = `<span class="material-symbols-rounded">check_circle</span> Active Bridge`;
+                        btn.className = "w-full py-3 rounded-xl bg-green-500/20 border border-green-500/50 text-green-400 text-sm font-bold transition-all flex items-center justify-center gap-2 cursor-default";
+                        btn.closest('.glass-panel').classList.add('ring-1', 'ring-green-500/50', 'bg-green-500/5');
+
+                        window.isConnected = true;
+                        updateUIState();
+                        startDataStream('Google Sheets');
+                    } else {
+                        throw new Error("Empty data");
+                    }
+                })
+                .catch(e => {
+                    alert("Failed to read Sheet. Make sure it is public and CSV format.");
+                    btn.innerHTML = `Retry Connection`;
+                });
+        }
+
+        class GoogleSheetAdapter {
+            constructor(url) {
+                this.url = url;
+                this.lastData = null;
+            }
+
+            async fetchLatest() {
+                try {
+                    const r = await fetch(this.url + '&t=' + Date.now()); // bust cache
+                    const text = await r.text();
+                    const rows = text.split('\n').map(r => r.split(','));
+
+                    // Simple heuristic: Locate columns "Heart Rate" and "Steps" or just take last columns if undefined
+                    // Ideally user formats sheet: Timestamp, HR, Steps
+                    const header = rows[0].map(h => h.toLowerCase());
+                    const hrIndex = header.findIndex(h => h.includes('heart') || h.includes('bpm') || h.includes('hr'));
+                    const stepIndex = header.findIndex(h => h.includes('step'));
+
+                    const lastRow = rows[rows.length - 1]; // Most recent appended data
+
+                    // Fallback if empty row
+                    if (!lastRow || lastRow.length < 2) return null;
+
+                    return {
+                        hr: hrIndex > -1 ? parseInt(lastRow[hrIndex]) : (parseInt(lastRow[1]) || 72),
+                        steps: stepIndex > -1 ? parseInt(lastRow[stepIndex]) : (parseInt(lastRow[2]) || 0)
+                    }
+                } catch (e) {
+                    console.error(e);
+                    return null;
+                }
+            }
+        }
+
+        // --- Existing Mock Logic ---
+
+        // Interactive Auth Flow
+        HealthConnect.connect = function () {
+            if (window.isConnected) return;
+            document.getElementById('googleOAuthModal').classList.remove('hidden');
+            // Reset form
+            document.getElementById('googleStepEmail').classList.remove('hidden');
+            document.getElementById('googleStepPassword').classList.add('hidden');
+            document.getElementById('inputEmail').value = "";
+            document.getElementById('inputPassword').value = "";
+            document.getElementById('inputEmail').focus();
+        }
+
+        function closeGoogleModal() {
+            document.getElementById('googleOAuthModal').classList.add('hidden');
+        }
+
+        function closePermissionModal() {
+            document.getElementById('permissionModal').classList.add('hidden');
+        }
+
+        // ... (Existing interactive auth functions: goToPasswordStep, etc.) ...
+        function goToPasswordStep() {
+            const email = document.getElementById('inputEmail').value;
+            if (!email || !email.includes('@')) {
+                document.getElementById('inputEmail').classList.add('border-red-500', 'text-red-600');
+                return;
+            }
+            document.getElementById('inputEmail').classList.remove('border-red-500', 'text-red-600');
+            window.currentUserEmail = email;
+            document.getElementById('displayEmail').innerText = email;
+            document.getElementById('userInitial').innerText = email.charAt(0).toUpperCase();
+            document.getElementById('googleStepEmail').classList.add('hidden');
+            document.getElementById('googleStepPassword').classList.remove('hidden');
+            document.getElementById('inputPassword').focus();
+        }
+
+        function goBackToEmail() {
+            document.getElementById('googleStepPassword').classList.add('hidden');
+            document.getElementById('googleStepEmail').classList.remove('hidden');
+        }
+
+        function togglePassword() {
+            const input = document.getElementById('inputPassword');
+            input.type = input.type === "password" ? "text" : "password";
+        }
+
+        function submitPassword() {
+            const pass = document.getElementById('inputPassword').value;
+            if (pass.length < 1) return;
+            document.getElementById('googleOAuthModal').classList.add('hidden');
+            document.getElementById('permissionEmail').innerText = window.currentUserEmail;
+            setTimeout(() => {
+                document.getElementById('permissionModal').classList.remove('hidden');
+            }, 500);
+        }
+
+        function finishGoogleAuth() {
+            document.getElementById('permissionModal').classList.add('hidden');
+            const btn = document.getElementById('connectHealthCtx');
+            if (btn) btn.innerHTML = `<span class="material-symbols-rounded animate-spin">sync</span> <span>Authorizing...</span>`;
+
+            const gBtn = document.getElementById('gfitConnectBtn');
+            if (gBtn) gBtn.innerHTML = `<span class="material-symbols-rounded animate-spin text-sm">sync</span> <span>Wait...</span>`;
+
+            setTimeout(() => {
+                window.isConnected = true;
+
+                // Ensure a user context exists for sync (Demo Fallback)
+                if (!localStorage.getItem('neurovitals_currentUser')) {
+                    const mockUser = { name: 'Demo User', email: 'demo@neurovitals.dev' };
+                    localStorage.setItem('neurovitals_currentUser', JSON.stringify(mockUser));
+                    logMessage('Active session created for Demo User', 'text-slate-500');
+                }
+
+                updateUIState();
+                startDataStream('Live Simulation');
+
+                if (gBtn) {
+                    gBtn.innerHTML = `<span class="material-symbols-rounded">check_circle</span> Demo Active`;
+                    gBtn.className = 'w-full py-3 rounded-xl bg-blue-500/20 border border-blue-500/50 text-blue-400 text-sm font-bold transition-all flex items-center justify-center gap-2 cursor-default';
+                }
+
+                logMessage('Demo Mode Activated: Simulating Noise Watch encrypted stream.', 'text-blue-400');
+            }, 1500);
+        }
+
+        function updateUIState() {
+            const badge = document.getElementById('connectionBadge');
+            if (badge) {
+                badge.className = "flex items-center gap-2 px-3 py-1 rounded-full bg-green-500/20 border border-green-500/30 transition-all duration-300 shadow-[0_0_15px_rgba(34,197,94,0.3)]";
+                badge.innerHTML = `<span class="material-symbols-rounded text-green-400 text-sm animate-pulse">wifi</span><span class="text-xs font-bold text-green-400">LIVE FEED</span>`;
+            }
+
+            const dot = document.getElementById('systemStatusDot');
+            if (dot) dot.className = "w-2 h-2 rounded-full bg-green-500 animate-pulse";
+
+            const statusTxt = document.getElementById('systemStatusText');
+            if (statusTxt) {
+                statusTxt.className = "text-xs font-mono text-green-400";
+                statusTxt.innerText = "SYSTEM_OPTIMAL";
+            }
+
+            const deviceCount = document.getElementById('activeDeviceCount');
+            if (deviceCount) deviceCount.innerText = "01";
+
+            const scanLine = document.getElementById('scanLine');
+            if (scanLine) scanLine.classList.add('animate-scan-line');
+
+            const packetIcon = document.getElementById('packetIcon');
+            if (packetIcon) packetIcon.className = "w-10 h-10 rounded-full bg-accent-cyan/10 flex items-center justify-center text-accent-cyan";
+
+            const packetRate = document.getElementById('packetRate');
+            if (packetRate) packetRate.className = "text-2xl font-display font-bold text-accent-cyan";
+        }
+
+        // Advanced Heart Rate Simulator (Random Walk / Perlin-like)
+        class HeartRateSimulator {
+            constructor() {
+                this.rate = 72;
+                this.target = 72;
+                this.noise = 0;
+            }
+
+            next() {
+                if (Math.random() > 0.8) {
+                    this.target = 70 + Math.floor(Math.random() * 20 - 10);
+                }
+                const drift = (this.target - this.rate) * 0.1;
+                const noise = (Math.random() - 0.5) * 2;
+                this.rate += drift + noise;
+                if (this.rate < 55) this.rate = 55;
+                if (this.rate > 100) this.rate = 100;
+                return Math.floor(this.rate);
+            }
+        }
+
+        const hrSim = new HeartRateSimulator();
+        let sheetAdapter = null;
+
+        function startDataStream(source) {
+            const consoleOut = document.getElementById('consoleOutput');
+            const colors = ['text-green-400', 'text-accent-cyan', 'text-purple-400', 'text-yellow-400'];
+
+            if (window.packetInterval) clearInterval(window.packetInterval);
+
+            if (source === 'Google Sheets') {
+                sheetAdapter = new GoogleSheetAdapter(window.sheetUrl);
+                logMessage(`Bridge Established: ${window.sheetUrl.substring(0, 30)}...`, 'text-green-400');
+            } else {
+                logMessage(`Authenticated as ${window.currentUserEmail}`, 'text-blue-400');
+                logMessage(`OAuth2 Token Exchange Successful.`, 'text-green-400');
+            }
+
+            logMessage(`Beginning real-time data ingestion...`, 'text-white');
+
+            window.packetInterval = setInterval(async () => {
+                if (!window.isConnected) return;
+
+                const time = new Date().toISOString();
+                let rate, step;
+                let isReal = false;
+
+                if (source === 'Google Sheets' && sheetAdapter) {
+                    const data = await sheetAdapter.fetchLatest();
+                    if (data) {
+                        rate = data.hr;
+                        step = data.steps;
+                        isReal = true;
+                    } else {
+                        // Fallback to sim if fetch fail
+                        rate = hrSim.next();
+                        step = 0;
+                    }
+                } else {
+                    rate = hrSim.next();
+                    if (Math.random() > 0.98) step = Math.floor(Math.random() * 3);
+                    else step = 0;
+                }
+
+                // const packetId = Math.random().toString(36).substring(7).toUpperCase();
+                const color = colors[Math.floor(Math.random() * colors.length)];
+
+                const log = document.createElement('div');
+                log.className = "mb-1 font-mono text-[10px] md:text-xs border-l-2 border-transparent hover:border-white/20 pl-2 transition-all";
+
+                const stepSpan = step > 0 ? `<span class="text-white bg-white/10 px-1 rounded">STEPS:${step}</span>` : `<span class="text-slate-600">STEPS:${step}</span>`;
+                const realTag = isReal ? `<span class="text-green-500 bg-green-500/10 px-1 rounded ml-1">LIVE</span>` : '';
+
+                log.innerHTML = `
+                    <span class="text-slate-600">[${time.split('T')[1].replace('Z', '')}]</span> 
+                    <span class="${color} font-bold">${source.toUpperCase()}</span> 
+                    <span class="text-slate-500">::</span> 
+                    <span class="text-slate-500">{</span> <span class="text-primary">HR:${rate}</span>, ${stepSpan} <span class="text-slate-500">}</span> ${realTag}
+                `;
+
+                consoleOut.appendChild(log);
+                consoleOut.scrollTop = consoleOut.scrollHeight;
+
+                if (consoleOut.children.length > 50) consoleOut.removeChild(consoleOut.firstChild);
+
+                const currentDisplay = parseInt(document.getElementById('packetRate').innerText.replace(/,/g, ''));
+                if (Math.abs(currentDisplay - (rate * 10)) > 50) {
+                    document.getElementById('packetRate').innerText = (rate * 12 + Math.floor(Math.random() * 50)).toLocaleString();
+                }
+
+                // --- 3. Update Stat Cards UI ---
+                const stepUI = document.getElementById('gfit-steps');
+                const hrUI = document.getElementById('gfit-hr');
+                if (stepUI) stepUI.innerText = (stepUI.innerText === '—' ? step : parseInt(stepUI.innerText.replace(/,/g, '')) + step).toLocaleString();
+                if (hrUI) {
+                    hrUI.innerText = `${rate} bpm`;
+                    hrUI.style.color = '#34d399';
+                    setTimeout(() => { hrUI.style.color = ''; }, 600);
+                }
+
+                // --- 4. Persist to localStorage for Dashboard sync ---
+                const liveData = {
+                    heartRate: rate,
+                    steps: (stepUI ? parseInt(stepUI.innerText.replace(/,/g, '')) : 0),
+                    sleepHours: 7.5, // Mock constant for sim
+                    calories: 450, // Mock constant for sim
+                    updatedAt: new Date().toISOString()
+                };
+                localStorage.setItem('gfit_live_data', JSON.stringify(liveData));
+
+                // --- 5. Sync to Backend API ---
+                const currentUser = JSON.parse(localStorage.getItem('neurovitals_currentUser'));
+                if (currentUser && currentUser.email) {
+                    const vitalsPayload = {
+                        user_email: currentUser.email,
+                        heart_rate: liveData.heartRate,
+                        steps: liveData.steps,
+                        recorded_at: liveData.updatedAt,
+                        source: "simulation"
+                    };
+
+                    if (typeof apiCall === 'function') {
+                        apiCall('/save-vitals', {
+                            method: 'POST',
+                            body: JSON.stringify(vitalsPayload)
+                        }).then(() => {
+                            if (Math.random() > 0.8) logMessage(`Synced to Local AI Node ✓`, 'text-blue-400');
+                        }).catch(err => {
+                            console.warn('Backend Sim Sync Error:', err);
+                        });
+                    } else {
+                        fetch('http://localhost:8000/api/save-vitals', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(vitalsPayload)
+                        }).then(() => {
+                            if (Math.random() > 0.8) logMessage(`Synced to Backend ✓`, 'text-blue-400');
+                        });
+                    }
+                }
+
+            }, source === 'Google Sheets' ? 2000 : 800); // Slower poll for sheets to avoid rate limit
+        }
+
+        function logMessage(msg, colorClass = 'text-slate-400') {
+            const consoleOut = document.getElementById('consoleOutput');
+            const div = document.createElement('div');
+            div.className = `mb-1 font-mono text-xs ${colorClass}`;
+            div.innerText = `> ${msg}`;
+            consoleOut.appendChild(div);
+            consoleOut.scrollTop = consoleOut.scrollHeight;
+        }
+
+        // Initialize Equalizer Animation
+        const eq = document.getElementById('equalizer');
+        for (let i = 0; i < 40; i++) {
+            const bar = document.createElement('div');
+            bar.className = "w-1.5 bg-white/5 rounded-t-sm transition-all duration-300";
+            bar.style.height = "5%";
+            eq.appendChild(bar);
+        }
+
+        setInterval(() => {
+            Array.from(eq.children).forEach(bar => {
+                if (window.isConnected) {
+                    bar.style.height = (Math.random() * 60 + 10) + "%";
+                    bar.style.backgroundColor = Math.random() > 0.8 ? '#ec5b13' : '#ec5b1380';
+                } else {
+                    bar.style.height = (Math.random() * 20 + 5) + "%";
+                    bar.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                }
+            });
+        }, 150);
+
+        const style = document.createElement('style');
+        style.innerHTML = `
+            @keyframes pop-in { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+            @keyframes slide-left { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+            .animate-pop-in { animation: pop-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+            .animate-slide-left { animation: slide-left 0.2s ease-out forwards; }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+
+</html>

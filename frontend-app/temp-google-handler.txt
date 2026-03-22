@@ -1,0 +1,5 @@
+
+        // Google Sign In Handler
+        function handleGoogleSignIn() {
+            alert('Google Sign-In will be integrated soon. For now, please use email/password signup.');
+        }

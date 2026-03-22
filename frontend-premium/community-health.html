@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Neuro-Vitals | Community Health Intelligence</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols_Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec5b13",
+                        "background-dark": "#0a0a0a",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"]
+                    },
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Public Sans', sans-serif;
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #map {
+            height: 100%;
+            background: #1a1a1a;
+        }
+
+        .leaflet-control-container {
+            display: none;
+        }
+
+        @keyframes pulse-red {
+
+            0%,
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(236, 91, 19, 0.7);
+            }
+
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 15px rgba(236, 91, 19, 0);
+            }
+        }
+
+        .pulse-red {
+            animation: pulse-red 2s infinite;
+        }
+    </style>
+</head>
+
+<body class="bg-background-dark text-slate-100 font-display">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-background-dark border-r border-white/10 fixed h-full z-50 flex flex-col p-6 hidden lg:flex">
+        <div class="flex items-center gap-3 mb-10">
+            <div
+                class="size-10 rounded-xl bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20">
+                <span class="material-symbols-outlined">neurology</span>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold text-white leading-tight">Neuro-Vitals</h1>
+                <p class="text-[10px] uppercase tracking-widest text-primary font-bold">Health OS v2.4</p>
+            </div>
+        </div>
+        <nav class="flex-1 space-y-2">
+            <a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-white/5 hover:text-white rounded-xl transition-all"
+                href="index.html">
+                <span class="material-symbols-outlined">dashboard</span>
+                <span class="text-sm font-medium">Dashboard</span>
+            </a>
+            <a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-white/5 hover:text-white rounded-xl transition-all"
+                href="symptom-analysis.html">
+                <span class="material-symbols-outlined">analytics</span>
+                <span class="text-sm font-medium">Symptom Analysis</span>
+            </a>
+            <a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-white/5 hover:text-white rounded-xl transition-all"
+                href="adversarial-diagnosis.html">
+                <span class="material-symbols-outlined">swords</span>
+                <span class="text-sm font-medium">AI Debate Arena</span>
+            </a>
+            <a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-white/5 hover:text-white rounded-xl transition-all"
+                href="health-trajectory.html">
+                <span class="material-symbols-outlined">trending_up</span>
+                <span class="text-sm font-medium">Health Trajectory</span>
+            </a>
+            <a class="flex items-center gap-3 px-4 py-3 bg-primary/10 text-primary rounded-xl border border-primary/20 transition-all"
+                href="community-health.html">
+                <span class="material-symbols-outlined">public</span>
+                <span class="text-sm font-semibold">Community Map</span>
+            </a>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="lg:ml-64 flex flex-col h-screen relative overflow-hidden bg-background-dark">
+        <!-- Header -->
+        <header class="h-16 flex items-center justify-between px-8 border-b border-white/10 glass-panel z-40">
+            <div class="flex items-center gap-4">
+                <span class="material-symbols-outlined text-primary">public</span>
+                <h2 class="text-lg font-bold text-white uppercase tracking-tight">Community Health Intelligence</h2>
+            </div>
+            <div class="flex items-center gap-4">
+                <button id="refreshBtn"
+                    class="px-4 py-2 bg-primary/10 text-primary rounded-lg text-sm font-bold border border-primary/20 hover:bg-primary/20 transition-all">
+                    <span class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-sm">refresh</span>
+                        Refresh Data
+                    </span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Map Viewport -->
+        <div class="flex-1 relative">
+            <div id="map" class="absolute inset-0"></div>
+
+            <!-- Outbreak Alert Banner -->
+            <div id="outbreakAlert" class="hidden absolute top-6 left-1/2 -translate-x-1/2 z-[1000]">
+                <div
+                    class="glass-panel px-8 py-3 rounded-xl border border-primary/50 flex items-center gap-4 shadow-2xl shadow-primary/20">
+                    <div class="animate-pulse flex items-center justify-center bg-primary rounded-lg p-1.5">
+                        <span class="material-symbols-outlined text-white text-xl">warning</span>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-black text-primary tracking-widest uppercase">Outbreak Detected</h3>
+                        <p id="outbreakMessage" class="text-xs text-white/80 font-medium">High infection clusters
+                            identified</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Floating Analytics Sidebar -->
+            <div class="absolute top-6 right-6 bottom-6 w-80 z-[999] flex flex-col gap-4">
+                <div class="glass-panel p-5 rounded-xl border border-white/10 flex flex-col gap-6 shadow-2xl">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-black uppercase tracking-wider text-slate-100">Live Analytics</h3>
+                        <span id="liveIndicator" class="flex items-center gap-2">
+                            <span class="size-2 rounded-full bg-primary animate-pulse"></span>
+                            <span class="text-[10px] text-primary font-bold">LIVE</span>
+                        </span>
+                    </div>
+
+                    <!-- Stats -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="p-3 rounded-lg bg-white/5 border border-white/5">
+                            <p class="text-[10px] text-slate-400 uppercase font-bold mb-1">Total Reports</p>
+                            <p id="totalReports" class="text-2xl font-black text-white">0</p>
+                        </div>
+                        <div class="p-3 rounded-lg bg-white/5 border border-white/5">
+                            <p class="text-[10px] text-slate-400 uppercase font-bold mb-1">Last 24h</p>
+                            <p id="recent24h" class="text-2xl font-black text-white">0</p>
+                        </div>
+                        <div class="p-3 rounded-lg bg-white/5 border border-white/5">
+                            <p class="text-[10px] text-slate-400 uppercase font-bold mb-1">Velocity</p>
+                            <p id="velocity" class="text-2xl font-black text-primary">0%</p>
+                        </div>
+                        <div class="p-3 rounded-lg bg-white/5 border border-white/5">
+                            <p class="text-[10px] text-slate-400 uppercase font-bold mb-1">Status</p>
+                            <p id="status" class="text-sm font-bold text-green-400">NORMAL</p>
+                        </div>
+                    </div>
+
+                    <hr class="border-white/5" />
+
+                    <!-- Trending Symptoms -->
+                    <div class="space-y-4">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Trending Symptoms</p>
+                        <div id="trendingList" class="space-y-3">
+                            <!-- Dynamically populated -->
+                        </div>
+                    </div>
+
+                    <hr class="border-white/5" />
+
+                    <!-- Regional Vectors -->
+                    <div class="space-y-4 flex-1 flex flex-col overflow-hidden">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Regional Vectors</p>
+                        <div id="regionalList" class="space-y-2 overflow-y-auto pr-1">
+                            <!-- Dynamically populated -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Map Controls -->
+            <div class="absolute bottom-6 right-[340px] z-[999] flex flex-col gap-2">
+                <button
+                    class="w-10 h-10 glass-panel rounded-lg flex items-center justify-center text-white hover:bg-white/10 transition-all shadow-xl"
+                    onclick="map.zoomIn()">
+                    <span class="material-symbols-outlined">add</span>
+                </button>
+                <button
+                    class="w-10 h-10 glass-panel rounded-lg flex items-center justify-center text-white hover:bg-white/10 transition-all shadow-xl"
+                    onclick="map.zoomOut()">
+                    <span class="material-symbols-outlined">remove</span>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+        let map;
+        let markers = [];
+
+        // Initialize map
+        map = L.map('map', {
+            center: [19.0760, 72.8777], // Mumbai
+            zoom: 11,
+            zoomControl: false
+        });
+
+        // Dark theme tile layer
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '©OpenStreetMap, ©CartoDB'
+        }).addTo(map);
+
+        // Load initial data
+        loadCommunityData();
+
+        document.getElementById('refreshBtn').addEventListener('click', loadCommunityData);
+
+        async function loadCommunityData() {
+            try {
+                const response = await fetch(`${API_BASE}/community/heatmap`);
+                if (!response.ok) throw new Error('Failed to load data');
+
+                const data = await response.json();
+                updateUI(data);
+                updateMap(data.map_points);
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        function updateUI(data) {
+            // Update stats
+            document.getElementById('totalReports').textContent = data.total_reports;
+            document.getElementById('recent24h').textContent = data.recent_24h;
+            document.getElementById('velocity').textContent = data.transmission_velocity.toFixed(1) + '%';
+            document.getElementById('status').textContent = data.outbreak_detected ? 'OUTBREAK' : 'NORMAL';
+            document.getElementById('status').className = data.outbreak_detected ? 'text-sm font-bold text-red-400' : 'text-sm font-bold text-green-400';
+
+            // Show/hide alert
+            if (data.outbreak_detected) {
+                document.getElementById('outbreakAlert').classList.remove('hidden');
+                document.getElementById('outbreakMessage').textContent = data.alert_message;
+            }
+
+            // Update trending symptoms
+            const trendingList = document.getElementById('trendingList');
+            trendingList.innerHTML = data.trending_symptoms.slice(0, 5).map(item => {
+                const percentage = (item.count / data.total_reports * 100).toFixed(0);
+                return `
+                    <div class="space-y-1.5">
+                        <div class="flex justify-between text-[11px] font-medium">
+                            <span class="capitalize">${item.symptom}</span>
+                            <span class="text-primary">${percentage}%</span>
+                        </div>
+                        <div class="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                            <div class="h-full bg-primary rounded-full" style="width: ${percentage}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Update regional data
+            const regionalList = document.getElementById('regionalList');
+            regionalList.innerHTML = data.area_data.map(area => {
+                const colors = {
+                    high: { bg: 'bg-primary/5', border: 'border-primary/20', text: 'text-primary', dot: 'bg-primary' },
+                    medium: { bg: 'bg-yellow-500/5', border: 'border-yellow-500/20', text: 'text-yellow-500', dot: 'bg-yellow-500' },
+                    low: { bg: 'bg-green-500/5', border: 'border-green-500/20', text: 'text-green-500', dot: 'bg-green-500' }
+                };
+                const color = colors[area.severity] || colors.low;
+
+                return `
+                    <div class="flex items-center gap-3 p-3 rounded-lg ${color.bg} border ${color.border}">
+                        <div class="w-2 h-2 rounded-full ${color.dot}"></div>
+                        <div class="flex-1">
+                            <p class="text-xs font-bold text-white">${area.area}</p>
+                            <p class="text-[10px] text-slate-400">${area.count} Reports</p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateMap(points) {
+            // Clear existing markers
+            markers.forEach(marker => marker.remove());
+            markers = [];
+
+            // Add new markers
+            points.forEach(point => {
+                const color = point.severity > 7 ? 'red' : point.severity > 4 ? 'orange' : 'yellow';
+                const marker = L.circleMarker([point.lat, point.lon], {
+                    radius: point.severity,
+                    fillColor: color,
+                    color: color,
+                    weight: 1,
+                    opacity: 0.8,
+                    fillOpacity: 0.4
+                }).addTo(map);
+
+                marker.bindPopup(`
+                    <div style="font-family: Public Sans; padding: 8px;">
+                        <p style="font-weight: bold; margin-bottom: 4px;">Severity: ${point.severity}/10</p>
+                        <p style="font-size: 12px; color: #666;"><strong>Symptoms:</strong> ${point.symptoms.join(', ')}</p>
+                    </div>
+                `);
+
+                markers.push(marker);
+            });
+        }
+    </script>
+</body>
+
+</html>
