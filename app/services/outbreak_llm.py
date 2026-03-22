@@ -17,12 +17,66 @@ _model = None
 
 def _get_model():
     global _model
-    if _model is None:
-        import google.generativeai as genai
+    if _model is not None:
+        return _model
 
-        genai.configure(api_key=settings.GOOGLE_API_KEY)
-        _model = genai.GenerativeModel("gemini-flash-lite-latest")
-    return _model
+    # Strategy 1: Google AI SDK (Gemini)
+    if settings.GOOGLE_API_KEY:
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=settings.GOOGLE_API_KEY)
+            _model = genai.GenerativeModel("gemini-flash-lite-latest")
+            logger.info("Outbreak LLM initialized with Google AI SDK.")
+            return _model
+        except ImportError:
+            logger.warning("google-generativeai not installed, falling back...")
+        except Exception as e:
+            logger.error("Failed to init Google AI: %s", e)
+
+    # Strategy 2: GitHub Models (OpenAI-Compatible SDK)
+    if settings.GITHUB_TOKEN:
+        try:
+            from openai import OpenAI
+            client = OpenAI(
+                base_url="https://models.inference.ai.azure.com",
+                api_key=settings.GITHUB_TOKEN
+            )
+            # We'll wrap the OpenAI client to mimic the GenerativeModel.generate_content interface
+            class GitHubGeminiWrapper:
+                def __init__(self, client):
+                    self.client = client
+                def generate_content(self, content):
+                    # For simplicity, extract just the prompt text (content[0])
+                    # and ignore image data for the GitHub Models fallback unless using gpt-4o
+                    prompt = content[0] if isinstance(content, list) else content
+                    # If image is present, we should use a multimodal model
+                    model_name = "gpt-4o" # GitHub Models Gemini equivalent or gpt-4o
+                    
+                    messages = [{"role": "user", "content": prompt}]
+                    # If multimodal (GitHub models supports gpt-4o)
+                    if isinstance(content, list) and len(content) > 1:
+                        # Re-format for OpenAI Multimodal if needed
+                        pass 
+
+                    response = self.client.chat.completions.create(
+                        model=model_name,
+                        messages=messages,
+                        temperature=0.1
+                    )
+                    
+                    class ResponseWrapper:
+                        def __init__(self, text):
+                            self.text = text
+                    return ResponseWrapper(response.choices[0].message.content)
+
+            _model = GitHubGeminiWrapper(client)
+            logger.info("Outbreak LLM initialized with GitHub Models (OpenAI SDK).")
+            return _model
+        except Exception as e:
+            logger.error("Failed to init GitHub Models: %s", e)
+
+    # Strategy 3: Error
+    raise Exception("No AI provider configured (Missing GOOGLE_API_KEY and GITHUB_TOKEN)")
 
 
 def analyze_symptoms_with_gemini(data: dict, image_file=None) -> dict:

@@ -548,13 +548,12 @@
                         <span class='uppercase tracking-tighter'>Connection Protocol Error</span>
                     </div>
                     <p class='text-sm font-normal text-red-200/60 leading-relaxed mb-6'>
-                        The AI Analysis engine is currently unreachable. This is usually because the backend service is not running on port 8000.
+                        The AI Analysis engine is currently unreachable. If you are running locally, ensure your backend server is started. If on Vercel, check the function logs.
                     </p>
                     <div class='bg-black/40 p-4 rounded-xl border border-white/5 text-left'>
-                        <p class='text-[10px] uppercase font-black text-slate-500 mb-2 tracking-widest'>Required Action: Start Backend</p>
+                        <p class='text-[10px] uppercase font-black text-slate-500 mb-2 tracking-widest'>Local Development Guide</p>
                         <code class='text-[11px] font-mono text-primary block break-all leading-relaxed'>
-                            cd neuro-vitals/backend<br>
-                            .\\venv_win\\Scripts\\activate<br>
+                            # Start backend from project root<br>
                             python -m app.main
                         </code>
                     </div>

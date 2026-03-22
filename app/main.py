@@ -79,22 +79,28 @@ async def health_check():
         "version": settings.VERSION
     }
 
-# 1. Mount the frontend folder
-# Use absolute path based on this file's location to be robust on Railway
-app_dir = os.path.dirname(os.path.abspath(__file__)) # /app
-repo_root = os.path.join(app_dir, "..") # / (root)
-frontend_path = os.path.join(repo_root, "public") # /public
+# 1. Mount the frontend folder (Only if not on Vercel)
+# Vercel handles static files via vercel.json rewrites
+if not os.environ.get("VERCEL"):
+    app_dir = os.path.dirname(os.path.abspath(__file__)) # /app
+    repo_root = os.path.join(app_dir, "..") # / (root)
+    frontend_path = os.path.join(repo_root, "public") # /public
 
-if os.path.exists(frontend_path):
-    app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
-
-# 2. Catch-all route to serve index.html for any frontend route
-@app.get("/{catchall:path}")
-async def serve_frontend(catchall: str):
-    index_file = os.path.join(frontend_path, "index.html")
-    if os.path.exists(index_file):
-        return FileResponse(index_file)
-    return {"error": "Frontend not found"}
+    if os.path.exists(frontend_path):
+        app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
+    
+    # 2. Catch-all route to serve index.html for any frontend route (Local only)
+    @app.get("/{catchall:path}")
+    async def serve_frontend(catchall: str):
+        index_file = os.path.join(frontend_path, "index.html")
+        if os.path.exists(index_file):
+            return FileResponse(index_file)
+        return {"error": "Frontend not found"}
+else:
+    # On Vercel, we might still want a simple health check or info at root if accessed directly
+    @app.get("/")
+    async def root():
+        return {"message": "Neuro-Vitals API is running on Vercel"}
 
 
 if __name__ == "__main__":
