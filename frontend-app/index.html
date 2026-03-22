@@ -1249,43 +1249,31 @@
                 return;
             }
 
-            // 1. Try Custom Table-based Login (For existing/legacy credentials)
-            const { data: profile, error: profileErr } = await loginUser(email, password);
+            try {
+                // Supabase Auth Login
+                const { data, error } = await window.supabaseClient.auth.signInWithPassword({
+                    email: email,
+                    password: password,
+                });
 
-            if (profile) {
-                // Reset location state for fresh session tracking
-                localStorage.removeItem('neurovitals_location');
-                localStorage.removeItem('current_admin_node_id');
-                localStorage.removeItem('last_symptom_analysis');
-                
-                localStorage.setItem('neurovitals_currentUser', JSON.stringify({ ...profile }));
-                window.location.href = 'dashboard.html';
-                return;
-            }
+                if (error) throw error;
 
-            // 2. Fallback: Try Supabase Auth
-            const { data, error } = await window.supabaseClient.auth.signInWithPassword({
-                email: email,
-                password: password,
-            });
+                if (data.user) {
+                    localStorage.removeItem('neurovitals_location');
+                    localStorage.removeItem('current_admin_node_id');
+                    localStorage.removeItem('last_symptom_analysis');
 
-            if (data.user) {
-                // Reset location state for fresh session tracking
-                localStorage.removeItem('neurovitals_location');
-                localStorage.removeItem('current_admin_node_id');
-                localStorage.removeItem('last_symptom_analysis');
-
-                // Fetch profile to merge
-                const { data: userProfile } = await window.supabaseClient
-                    .from('profiles')
-                    .select('*')
-                    .eq('email', data.user.email)
-                    .single();
-                
-                localStorage.setItem('neurovitals_currentUser', JSON.stringify({ ...data.user, ...userProfile }));
-                window.location.href = 'dashboard.html';
-            } else {
-                alert('Login Failed: ' + (profileErr ? 'Invalid credentials' : error.message));
+                    const { data: userProfile } = await window.supabaseClient
+                        .from('profiles')
+                        .select('*')
+                        .eq('email', data.user.email)
+                        .single();
+                    
+                    localStorage.setItem('neurovitals_currentUser', JSON.stringify({ ...data.user, ...userProfile }));
+                    window.location.href = 'dashboard.html';
+                }
+            } catch (err) {
+                alert('Login Failed: ' + err.message);
             }
         }
 
@@ -1296,38 +1284,25 @@
             const email = document.getElementById('signUpEmail').value;
             const password = document.getElementById('signUpPassword').value;
 
-            // Handle Supabase Auth SignUp
-            const { data, error } = await window.supabaseClient.auth.signUp({
-                email: email,
-                password: password,
-                options: {
-                    data: {
-                        full_name: name,
-                    }
-                }
-            });
+            try {
+                const { data, error } = await window.supabaseClient.auth.signUp({
+                    email: email,
+                    password: password,
+                    options: { data: { full_name: name } }
+                });
 
-            if (data.user || !error) {
-                // Reset location state for fresh session tracking
+                if (error) throw error;
+
                 localStorage.removeItem('neurovitals_location');
                 localStorage.removeItem('current_admin_node_id');
                 localStorage.removeItem('last_symptom_analysis');
-
-                // Create profile entry with password for compatibility
-                await upsertUserProfile({
-                    id: data.user.id,
-                    email: email,
-                    full_name: name,
-                    password: password
-                });
-                
                 localStorage.setItem('neurovitals_currentUser', JSON.stringify({ 
                     ...data.user, 
                     full_name: name 
                 }));
                 window.location.href = 'onboarding.html';
-            } else {
-                alert('Error: ' + error.message);
+            } catch (err) {
+                alert('Error: ' + err.message);
             }
         }
 
