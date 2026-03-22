@@ -205,7 +205,7 @@ function logout() {
 }
 
 // API configuration
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = 'https://neuro-vitals-api.onrender.com/api';
 
 // API helper functions
 async function apiCall(endpoint, options = {}) {

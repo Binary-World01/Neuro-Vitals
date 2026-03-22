@@ -631,7 +631,7 @@
     </style>
 
     <script>
-        const API_BASE = 'http://localhost:8000';
+        const API_BASE = 'https://neuro-vitals-api.onrender.com';
         let currentTab = 'profile';
         let lastPrediction = null;
         let trendChartInstance = null;
@@ -785,7 +785,7 @@
                     alert('Prediction failed: ' + (result.detail || 'Unknown error'));
                 }
             } catch (err) {
-                alert('Connection error: ' + err.message + '\n\nMake sure the backend is running on localhost:8000');
+                alert('Connection error: ' + err.message + '\n\nThe backend API may be sleeping (Render free tier). Please wait 30 seconds and retry.');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<span class="material-symbols-rounded">bolt</span> Analyze & Predict Risks';
