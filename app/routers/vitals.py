@@ -27,11 +27,11 @@ class VitalsData(BaseModel):
     source: Optional[str] = "google_fit"
     recorded_at: Optional[datetime] = None
 
-@router.get("/api/vitals-health")
+@router.get("/vitals-health")
 async def vitals_health():
     return {"status": "ok", "supabase": supabase is not None}
 
-@router.post("/api/save-vitals")
+@router.post("/save-vitals")
 
 async def save_vitals(vitals: VitalsData):
     """Save vitals data from Google Fit to Supabase (upsert)"""

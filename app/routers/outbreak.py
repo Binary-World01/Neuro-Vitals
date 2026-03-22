@@ -23,7 +23,7 @@ from app.services.outbreak_db import (
 )
 from app.services.location_service import get_client_location
 
-router = APIRouter(prefix="/api/outbreak", tags=["outbreak"])
+router = APIRouter(prefix="/outbreak", tags=["outbreak"])
 
 
 # ──────────────────────────────────────────────

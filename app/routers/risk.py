@@ -17,7 +17,7 @@ from app.services.risk_engine import (
 )
 from app.services.ocr_helper import extract_text_from_image
 
-router = APIRouter(prefix="/api/risk", tags=["Risk Engine"])
+router = APIRouter(prefix="/risk", tags=["Risk Engine"])
 
 
 # ─── Request / Response Models ────────────────────────────────────

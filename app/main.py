@@ -25,14 +25,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(diagnosis.router)
-app.include_router(adversarial.router)
-app.include_router(trajectory.router)
-app.include_router(community.router)
-app.include_router(vitals.router)
-app.include_router(risk.router)
-app.include_router(outbreak.router)
+# Include routers with global API prefix
+app.include_router(diagnosis.router, prefix="/api")
+app.include_router(adversarial.router, prefix="/api")
+app.include_router(trajectory.router, prefix="/api")
+app.include_router(community.router, prefix="/api")
+app.include_router(vitals.router, prefix="/api")
+app.include_router(risk.router, prefix="/api")
+app.include_router(outbreak.router, prefix="/api")
 
 
 @app.get("/api/info")
